@@ -7,7 +7,6 @@ import com.foodshop.dto.response.RefreshTokenResponse;
 import com.foodshop.entity.RefreshToken;
 import com.foodshop.entity.User;
 import com.foodshop.enums.Role;
-import com.foodshop.exception.EntityExitsException;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
 import com.foodshop.repository.RefreshTokenRepository;
@@ -100,7 +99,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest registerRequest) {
         boolean checkUsername = userRepository.existsByUsername(registerRequest.getUsername());
         if (checkUsername) {
-            throw new GlobalException(GlobalCode.USER_ALREADY_EXISTS);
+            throw new GlobalException(GlobalCode.USERNAME_EXISTS);
         }
         User user = new User();
         user.setUsername(registerRequest.getUsername());

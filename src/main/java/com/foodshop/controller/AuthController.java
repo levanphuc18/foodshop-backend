@@ -86,7 +86,7 @@ public class AuthController {
 
         } catch (Exception e) {
             ApiResponse<JwtResponse> errorResponse = new ApiResponse<>(
-                    GlobalCode.TOKEN_EXPIRED,
+                    GlobalCode.UNAUTHORIZED,
                     "Error refreshing token: " + e.getMessage(),
                     null
             );
