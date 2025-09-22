@@ -6,6 +6,7 @@ import com.foodshop.entity.Discount;
 import com.foodshop.enums.DiscountType;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
+import com.foodshop.mapper.DiscountMapper;
 import com.foodshop.repository.DiscountRepository;
 import com.foodshop.service.DiscountService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 public class DiscountServiceImpl implements DiscountService {
 
     private final DiscountRepository discountRepository;
+    private final DiscountMapper discountMapper;
 
     @Override
     public DiscountResponse createDiscount(DiscountRequest request) {
@@ -35,15 +37,16 @@ public class DiscountServiceImpl implements DiscountService {
             if(request.getMinOrderAmount() == null){
                 throw new GlobalException(GlobalCode.MIN_ORDER_AMOUNT_REQUIRED);
             }
-        }else if(request.getType() == DiscountType.PRODUCT){
+        } else if(request.getType() == DiscountType.PRODUCT){
             if(request.getMinOrderAmount() != null){
                 throw new GlobalException(GlobalCode.INVALID_MIN_ORDER_AMOUNT);
             }
         }
 
-        Discount discount = mapToEntity(request);
+        Discount discount = discountMapper.toDiscount(request);
         discount = discountRepository.save(discount);
-        return mapToResponse(discount);
+
+        return discountMapper.toDiscountResponse(discount);
     }
 
     @Override
@@ -51,14 +54,14 @@ public class DiscountServiceImpl implements DiscountService {
     public DiscountResponse getDiscountById(Integer id) {
         Discount discount = discountRepository.findById(id)
                 .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
-        return mapToResponse(discount);
+        return discountMapper.toDiscountResponse(discount);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<DiscountResponse> getAllDiscounts() {
         return discountRepository.findAll().stream()
-                .map(this::mapToResponse)
+                .map(discountMapper::toDiscountResponse)
                 .collect(Collectors.toList());
     }
 
@@ -86,17 +89,18 @@ public class DiscountServiceImpl implements DiscountService {
             throw new GlobalException(GlobalCode.DISCOUNT_INVALID_DATE_RANGE);
         }
 
-        existing.setCode(request.getCode());
-        existing.setType(request.getType());
-        existing.setValue(request.getValue());
-        existing.setMinOrderAmount(request.getMinOrderAmount());
-        existing.setStartDate(request.getStartDate());
-        existing.setEndDate(request.getEndDate());
-        existing.setStatus(request.getStatus());
+//        existing.setCode(request.getCode());
+//        existing.setType(request.getType());
+//        existing.setValue(request.getValue());
+//        existing.setMinOrderAmount(request.getMinOrderAmount());
+//        existing.setStartDate(request.getStartDate());
+//        existing.setEndDate(request.getEndDate());
+//        existing.setStatus(request.getStatus());
 
-        return mapToResponse(discountRepository.save(existing));
+        discountMapper.updateDiscountFromRequest(request, existing);
+
+        return discountMapper.toDiscountResponse(discountRepository.save(existing));
     }
-
 
     @Override
     public void deleteDiscount(Integer id) {
@@ -104,30 +108,5 @@ public class DiscountServiceImpl implements DiscountService {
             throw new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND);
         }
         discountRepository.deleteById(id);
-    }
-
-    private Discount mapToEntity(DiscountRequest request) {
-        Discount d = new Discount();
-        d.setCode(request.getCode());
-        d.setType(request.getType());
-        d.setValue(request.getValue());
-        d.setMinOrderAmount(request.getMinOrderAmount());
-        d.setStartDate(request.getStartDate());
-        d.setEndDate(request.getEndDate());
-        d.setStatus(request.getStatus());
-        return d;
-    }
-
-    private DiscountResponse mapToResponse(Discount discount) {
-        DiscountResponse r = new DiscountResponse();
-        r.setDiscountId(discount.getDiscountId());
-        r.setCode(discount.getCode());
-        r.setType(discount.getType());
-        r.setValue(discount.getValue());
-        r.setMinOrderAmount(discount.getMinOrderAmount());
-        r.setStartDate(discount.getStartDate());
-        r.setEndDate(discount.getEndDate());
-        r.setStatus(discount.getStatus());
-        return r;
     }
 }
