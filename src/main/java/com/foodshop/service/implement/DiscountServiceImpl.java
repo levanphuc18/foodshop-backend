@@ -89,14 +89,6 @@ public class DiscountServiceImpl implements DiscountService {
             throw new GlobalException(GlobalCode.DISCOUNT_INVALID_DATE_RANGE);
         }
 
-//        existing.setCode(request.getCode());
-//        existing.setType(request.getType());
-//        existing.setValue(request.getValue());
-//        existing.setMinOrderAmount(request.getMinOrderAmount());
-//        existing.setStartDate(request.getStartDate());
-//        existing.setEndDate(request.getEndDate());
-//        existing.setStatus(request.getStatus());
-
         discountMapper.updateDiscountFromRequest(request, existing);
 
         return discountMapper.toDiscountResponse(discountRepository.save(existing));

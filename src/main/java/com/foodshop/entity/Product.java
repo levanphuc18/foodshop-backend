@@ -2,10 +2,7 @@ package com.foodshop.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.DynamicUpdate;
 
@@ -18,9 +15,11 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @DynamicInsert
 @DynamicUpdate
 public class Product {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id")
@@ -42,8 +41,7 @@ public class Product {
     private BigDecimal price;
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 0, message = "Quantity must not be negative")
-    @Max(value = 9999, message = "Quantity must not exceed 9999")
+    @Min(value = 1, message = "Quantity must not be negative")
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
@@ -57,13 +55,22 @@ public class Product {
     @Column(name = "updated_at", columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private LocalDateTime updatedAt;
 
-    @NotNull(message = "Discount is required")
-    @ManyToOne
-    @JoinColumn(name = "discount_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discount_id", nullable = true)
     private Discount discount;
 
     @NotNull(message = "Category is required")
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
