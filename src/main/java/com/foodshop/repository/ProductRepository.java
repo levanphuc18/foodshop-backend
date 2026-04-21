@@ -4,9 +4,24 @@ import com.foodshop.entity.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import java.util.List;
+import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
-    List<Product> findByCategory_CategoryId(Integer categoryId);
-    Page<Product> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
+    
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.images WHERE p.productId = :id")
+    Optional<Product> findById(@Param("id") Integer id);
+
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE p.category.categoryId = :categoryId")
+    List<Product> findByCategory_CategoryId(@Param("categoryId") Integer categoryId);
+
+    @Query(value = "SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
+           countQuery = "SELECT count(p) FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Product> findByNameContainingIgnoreCase(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images")
+    List<Product> findAll();
 }

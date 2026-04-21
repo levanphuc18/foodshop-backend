@@ -12,8 +12,10 @@ import com.foodshop.repository.CategoryRepository;
 import com.foodshop.repository.DiscountRepository;
 import com.foodshop.repository.ProductRepository;
 import com.foodshop.service.CloudinaryService;
+import com.foodshop.entity.ProductImage;
 import com.foodshop.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,15 +45,22 @@ public class ProductServiceImpl implements ProductService {
                     .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
         }
 
-        String imageUrl = null;
-        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
-            imageUrl = cloudinaryService.uploadFile(request.getImageFile());
-        }
-
         Product product = productMapper.toProduct(request);
         product.setCategory(category);
         product.setDiscount(discount);
-        product.setImageUrl(imageUrl);
+
+        if (request.getImageFiles() != null && !request.getImageFiles().isEmpty()) {
+            for (MultipartFile file : request.getImageFiles()) {
+                if (file != null && !file.isEmpty()) {
+                    String url = cloudinaryService.uploadFile(file);
+                    ProductImage productImage = ProductImage.builder()
+                            .imageUrl(url)
+                            .product(product)
+                            .build();
+                    product.getImages().add(productImage);
+                }
+            }
+        }
 
         product = productRepository.save(product);
         return productMapper.toProductResponse(product);
@@ -72,13 +81,24 @@ public class ProductServiceImpl implements ProductService {
                     .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
         }
 
-        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
-            product.setImageUrl(cloudinaryService.uploadFile(request.getImageFile()));
-        }
-
         productMapper.updateProductFromRequest(request, product);
         product.setCategory(category);
         product.setDiscount(discount);
+
+        if (request.getImageFiles() != null && !request.getImageFiles().isEmpty()) {
+            // Xóa ảnh cũ nếu bạn muốn thay thế hoàn toàn
+            product.getImages().clear();
+            for (MultipartFile file : request.getImageFiles()) {
+                if (file != null && !file.isEmpty()) {
+                    String url = cloudinaryService.uploadFile(file);
+                    ProductImage productImage = ProductImage.builder()
+                            .imageUrl(url)
+                            .product(product)
+                            .build();
+                    product.getImages().add(productImage);
+                }
+            }
+        }
 
         product = productRepository.save(product);
         return productMapper.toProductResponse(product);

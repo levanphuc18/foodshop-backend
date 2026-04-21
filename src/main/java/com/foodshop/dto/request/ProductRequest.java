@@ -3,6 +3,7 @@ package com.foodshop.dto.request;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.*;
 
 import java.math.BigDecimal;
 
@@ -21,10 +22,10 @@ public class ProductRequest {
     private BigDecimal price;
 
     @NotNull(message = "Quantity is required")
-    @Min(0)
+    @Min(1)
     private Integer quantity;
 
-    private MultipartFile imageFile;
+    private List<MultipartFile> imageFiles;
 
     private Integer discountId;
 
