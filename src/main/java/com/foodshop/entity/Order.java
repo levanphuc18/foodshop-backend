@@ -48,7 +48,7 @@ public class Order {
     private LocalDateTime createdAt;
 
     @NotNull(message = "Total amount is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Total amount must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Total amount must be greater than or equal to 0")
     @Digits(integer = 8, fraction = 2, message = "Total amount format is invalid")
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
@@ -58,8 +58,18 @@ public class Order {
     @Column(name = "discount_amount", precision = 10, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @DecimalMin(value = "0.0", inclusive = true, message = "Shipping fee must not be negative")
+    @Digits(integer = 8, fraction = 2, message = "Shipping fee format is invalid")
+    @Column(name = "shipping_fee", precision = 10, scale = 2)
+    private BigDecimal shippingFee = BigDecimal.ZERO;
+
+    @DecimalMin(value = "0.0", inclusive = true, message = "Shipping discount must not be negative")
+    @Digits(integer = 8, fraction = 2, message = "Shipping discount format is invalid")
+    @Column(name = "shipping_discount", precision = 10, scale = 2)
+    private BigDecimal shippingDiscount = BigDecimal.ZERO;
+
     @NotNull(message = "Final amount is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Final amount must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Final amount must be greater than or equal to 0")
     @Digits(integer = 8, fraction = 2, message = "Final amount format is invalid")
     @Column(name = "final_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal finalAmount;
@@ -69,10 +79,13 @@ public class Order {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @NotNull(message = "Discount is required")
     @ManyToOne
-    @JoinColumn(name = "discount_id", nullable = false)
+    @JoinColumn(name = "discount_id", nullable = true)
     private Discount discount;
+
+    /** Snapshot mã coupon đã áp dụng (để hiển thị ngay cả khi discount bị xóa sau này) */
+    @Column(name = "discount_code", length = 50)
+    private String discountCode;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
