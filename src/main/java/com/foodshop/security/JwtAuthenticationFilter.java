@@ -25,9 +25,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // Bỏ qua các URL không cần JWT
         String path = request.getServletPath();
-        if (path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/users")) {
+        String method = request.getMethod();
+
+        // Skip JWT check for public endpoints
+        boolean isPublicAuth = path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/users");
+        boolean isPublicGet = "GET".equalsIgnoreCase(method) && (
+                path.startsWith("/api/v1/products") ||
+                path.startsWith("/api/v1/categories") ||
+                path.startsWith("/api/v1/discounts")
+        );
+
+        if (isPublicAuth || isPublicGet) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -48,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtUtil.isTokenValid(jwt, username)) {
+            if (jwtUtil.isTokenValid(jwt, username) && userDetails.isEnabled()) {
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());

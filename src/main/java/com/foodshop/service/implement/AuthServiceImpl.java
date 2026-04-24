@@ -81,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken token = refreshTokenRepository.findByRefreshToken(refreshToken)
                 .orElse(null);
 
-        if (token == null || token.getExpiryDate().isBefore(Instant.now())) {
+        if (token == null || token.getExpiryDate().isBefore(Instant.now()) || !token.getUser().getEnabled()) {
             return null;
         }
 
