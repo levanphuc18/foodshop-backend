@@ -1,18 +1,18 @@
 package com.foodshop.exception;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
-public class GlobalException extends RuntimeException{
-        private String code;
-        private String message;
-        public GlobalException(String message) {
-            super(message);
-        }
+public class GlobalException extends RuntimeException {
+    private final int code;
+
+    public GlobalException(GlobalCode globalCode) {
+        super(globalCode.getMessage());
+        this.code = globalCode.getCode();
+    }
+
+    public GlobalException(GlobalCode globalCode, String customMessage) {
+        super(customMessage);
+        this.code = globalCode.getCode();
+    }
 }
