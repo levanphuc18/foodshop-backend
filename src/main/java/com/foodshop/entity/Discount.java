@@ -2,6 +2,7 @@ package com.foodshop.entity;
 
 import com.foodshop.enums.DiscountStatus;
 import com.foodshop.enums.DiscountType;
+import com.foodshop.enums.DiscountUnit;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,12 +36,19 @@ public class Discount {
     @Column(name = "type", nullable = false, length = 20)
     private DiscountType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_unit", length = 20)
+    private DiscountUnit discountUnit;
+
     @NotNull(message = "Discount value is required")
     @Column(name = "value", nullable = false, precision = 10, scale = 2)
     private BigDecimal value;
 
     @Column(name = "min_order_amount", precision = 10, scale = 2)
     private BigDecimal minOrderAmount;
+
+    @Column(name = "max_discount", precision = 10, scale = 2)
+    private BigDecimal maxDiscount;
 
     @NotNull(message = "Start date is required")
     @Column(name = "start_date", nullable = false)

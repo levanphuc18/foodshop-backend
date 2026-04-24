@@ -2,6 +2,7 @@ package com.foodshop.dto.request;
 
 import com.foodshop.enums.DiscountStatus;
 import com.foodshop.enums.DiscountType;
+import com.foodshop.enums.DiscountUnit;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -16,9 +17,14 @@ public class DiscountRequest {
     @NotNull(message = "Discount type is required")
     private DiscountType type;
 
+    @NotNull(message = "Discount unit is required")
+    private DiscountUnit discountUnit;
+
     @NotNull(message = "Discount value is required")
-    @DecimalMax(value = "100.0", message = "Discount cannot exceed 100%")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Discount value must be greater than 0")
     private BigDecimal value;
+
+    private BigDecimal maxDiscount;
 
     private BigDecimal minOrderAmount;
 
