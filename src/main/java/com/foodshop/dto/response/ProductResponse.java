@@ -16,8 +16,14 @@ public class ProductResponse {
     private BigDecimal price;
     private BigDecimal salePrice;
     private BigDecimal discountPercentage;
+    /** Loại discount đang áp dụng ("PRODUCT" hoặc null nếu không có) */
+    private String discountType;
+    /** Đơn vị discount đang áp dụng ("PERCENT" hoặc "AMOUNT", null nếu không có) */
+    private String discountUnit;
     private Integer quantity;
     private List<String> imageUrls;
     private Integer discountId;
     private Integer categoryId;
-}
+    private BigDecimal maxDiscount;
+    private Boolean isActive;
+}

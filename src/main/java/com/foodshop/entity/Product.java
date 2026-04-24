@@ -42,7 +42,7 @@ public class Product {
     private BigDecimal price;
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 1, message = "Quantity must not be negative")
+    @Min(value = 0, message = "Quantity must not be negative")
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
@@ -64,6 +64,10 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private Boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {

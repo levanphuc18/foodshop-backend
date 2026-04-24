@@ -24,4 +24,14 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images")
     List<Product> findAll();
+
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE p.isActive = true")
+    List<Product> findAllActive();
+
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE p.category.categoryId = :categoryId AND p.isActive = true")
+    List<Product> findActiveByCategoryId(@Param("categoryId") Integer categoryId);
+
+    @Query(value = "SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.isActive = true",
+           countQuery = "SELECT count(p) FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.isActive = true")
+    Page<Product> searchActiveProducts(@Param("keyword") String keyword, Pageable pageable);
 }

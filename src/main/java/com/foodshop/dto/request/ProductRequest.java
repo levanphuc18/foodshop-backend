@@ -22,7 +22,7 @@ public class ProductRequest {
     private BigDecimal price;
 
     @NotNull(message = "Quantity is required")
-    @Min(1)
+    @Min(0)
     private Integer quantity;
 
     private List<MultipartFile> imageFiles;
@@ -31,4 +31,6 @@ public class ProductRequest {
 
     @NotNull(message = "Category id is required")
     private Integer categoryId;
+
+    private Boolean isActive;
 }

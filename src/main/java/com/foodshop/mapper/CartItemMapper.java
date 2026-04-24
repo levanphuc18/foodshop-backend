@@ -14,17 +14,15 @@ public interface CartItemMapper {
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.price", target = "productPrice")
     @Mapping(source = "quantity", target = "quantity")
-    @Mapping(target = "productImageUrl", ignore = true)
+    @Mapping(target = "productImageUrl", expression = "java(mapProductImageUrl(item))")
     CartItemResponse toCartItemResponse(CartItem item);
 
-    @AfterMapping
-    default void fillProductImageUrl(CartItem item, @MappingTarget CartItemResponse response) {
+    default String mapProductImageUrl(CartItem item) {
         if (item.getProduct() != null
                 && item.getProduct().getImages() != null
                 && !item.getProduct().getImages().isEmpty()) {
-            response.setProductImageUrl(item.getProduct().getImages().get(0).getImageUrl());
-        } else {
-            response.setProductImageUrl(null);
+            return item.getProduct().getImages().get(0).getImageUrl();
         }
+        return null;
     }
 }
