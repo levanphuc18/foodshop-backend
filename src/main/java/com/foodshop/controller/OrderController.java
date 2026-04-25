@@ -28,7 +28,7 @@ public class OrderController {
      * POST /api/v1/orders
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody OrderRequest request) {
@@ -48,7 +48,7 @@ public class OrderController {
      * GET /api/v1/orders/my
      */
     @GetMapping("/my")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyOrders(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
@@ -67,7 +67,7 @@ public class OrderController {
      * GET /api/v1/orders/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Integer id) {
         OrderResponse response = orderService.getOrderById(id);
         return ResponseEntity.ok(

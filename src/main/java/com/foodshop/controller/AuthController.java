@@ -6,6 +6,7 @@ import com.foodshop.dto.request.RegisterRequest;
 import com.foodshop.dto.response.AuthResponse;
 import com.foodshop.dto.ApiResponse;
 import com.foodshop.dto.response.JwtResponse;
+import com.foodshop.enums.Role;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.service.AuthService;
 import jakarta.validation.Valid;
@@ -41,12 +42,14 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest authRequest) {
         JwtResponse jwtResponse = authService.generateToken(authRequest.getUsername(), authRequest.getPassword());
         Integer userId = authService.getUserIdByUsername(authRequest.getUsername());
+        String role = authService.getRoleByUsername(authRequest.getUsername());
 
         AuthResponse authResponse = new AuthResponse(
                 authRequest.getUsername(),
                 jwtResponse.getAccessToken(),
                 jwtResponse.getRefreshToken(),
-                userId
+                userId,
+                Role.valueOf(role)
         );
         ApiResponse<AuthResponse> response = new ApiResponse<>(
                 GlobalCode.SUCCESS,

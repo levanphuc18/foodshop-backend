@@ -35,7 +35,7 @@ public class DiscountController {
      * POST /api/v1/discounts/validate?totalAmount=500000
      */
     @PostMapping("/validate")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<ApiResponse<CouponValidationResponse>> validateCoupon(
             @RequestParam String code,
             @RequestParam BigDecimal totalAmount) {

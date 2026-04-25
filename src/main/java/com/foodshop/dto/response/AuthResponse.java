@@ -1,5 +1,6 @@
 package com.foodshop.dto.response;
 
+import com.foodshop.enums.Role;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,5 +13,6 @@ public class AuthResponse {
     private String accessToken;
     private String refreshToken;
     private Integer userId;
+    private Role role;
 }
 

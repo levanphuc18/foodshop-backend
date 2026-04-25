@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private long refreshExpirationMs;
 
     protected AuthResponse convertToRegisterResponse(User user, String accessToken, String refreshToken) {
-        return new AuthResponse(user.getUsername(), accessToken, refreshToken, user.getUserId());
+        return new AuthResponse(user.getUsername(), accessToken, refreshToken, user.getUserId(), user.getRole());
     }
 
     @Override
@@ -90,8 +90,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String createAccessTokenFromRefreshToken(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Khong tim thay username: " + username));
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", "CUSTOMER");
+        claims.put("roles", user.getRole().name());
         return jwtUtil.generateAccessToken(username, claims);
     }
 
@@ -128,5 +130,12 @@ public class AuthServiceImpl implements AuthService {
             throw new UsernameNotFoundException("Khong tim thay username: " + username);
         }
         return userId;
+    }
+
+    @Override
+    public String getRoleByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .map(user -> user.getRole().name())
+                .orElseThrow(() -> new UsernameNotFoundException("Khong tim thay username: " + username));
     }
 }
