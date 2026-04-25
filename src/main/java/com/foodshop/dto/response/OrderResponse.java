@@ -40,5 +40,7 @@ public class OrderResponse {
     private String discountCode;
 
     private Integer userId;
+    private String username;
+    private String fullName;
     private List<OrderItemResponse> orderItems;
 }

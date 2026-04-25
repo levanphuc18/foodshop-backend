@@ -11,7 +11,13 @@ import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
 import com.foodshop.repository.*;
 import com.foodshop.service.OrderService;
+import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -183,6 +189,39 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<OrderResponse> getAllOrdersAdmin(String keyword, OrderStatus status, int page, int size, String sortBy, boolean asc) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
+        Specification<Order> specification = (root, query, cb) -> {
+            query.distinct(true);
+
+            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+            var userJoin = root.join("user", JoinType.LEFT);
+
+            if (!normalizedKeyword.isBlank()) {
+                String pattern = "%" + normalizedKeyword + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("shippingAddress")), pattern),
+                        cb.like(cb.lower(cb.coalesce(root.get("discountCode"), "")), pattern),
+                        cb.like(cb.lower(userJoin.get("username")), pattern),
+                        cb.like(cb.lower(userJoin.get("fullName")), pattern),
+                        cb.like(root.get("orderId").as(String.class), pattern)
+                ));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Pageable pageable = PageRequest.of(page, size, resolveOrderSort(sortBy, asc));
+        return orderRepository.findAll(specification, pageable)
+                .map(this::toOrderResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public OrderResponse getOrderById(Integer orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new GlobalException(GlobalCode.ORDER_NOT_FOUND));
@@ -288,6 +327,16 @@ public class OrderServiceImpl implements OrderService {
         return result;
     }
 
+    private Sort resolveOrderSort(String sortBy, boolean asc) {
+        String property = switch (sortBy == null ? "" : sortBy) {
+            case "finalAmount" -> "finalAmount";
+            case "status" -> "status";
+            default -> "createdAt";
+        };
+
+        return asc ? Sort.by(property).ascending() : Sort.by(property).descending();
+    }
+
     private OrderResponse toOrderResponse(Order order) {
         List<OrderItemResponse> itemResponses = order.getOrderItems() == null
                 ? List.of()
@@ -308,6 +357,8 @@ public class OrderServiceImpl implements OrderService {
                 .finalAmount(order.getFinalAmount())
                 .discountCode(order.getDiscountCode())
                 .userId(order.getUser() != null ? order.getUser().getUserId() : null)
+                .username(order.getUser() != null ? order.getUser().getUsername() : null)
+                .fullName(order.getUser() != null ? order.getUser().getFullName() : null)
                 .orderItems(itemResponses)
                 .build();
     }
