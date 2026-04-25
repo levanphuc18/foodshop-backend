@@ -13,12 +13,18 @@ import com.foodshop.mapper.DiscountMapper;
 import com.foodshop.repository.DiscountRepository;
 import com.foodshop.service.DiscountService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -91,6 +97,33 @@ public class DiscountServiceImpl implements DiscountService {
         return discountRepository.findAll().stream()
                 .map(discountMapper::toDiscountResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<DiscountResponse> getAllDiscountsAdmin(String keyword, DiscountStatus status, DiscountType type, int page, int size, String sortBy, boolean asc) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
+        Specification<Discount> specification = (root, query, cb) -> {
+            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+
+            if (!normalizedKeyword.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("code")), "%" + normalizedKeyword + "%"));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Pageable pageable = PageRequest.of(page, size, resolveDiscountSort(sortBy, asc));
+        return discountRepository.findAll(specification, pageable)
+                .map(discountMapper::toDiscountResponse);
     }
 
     @Override
@@ -227,4 +260,15 @@ public class DiscountServiceImpl implements DiscountService {
             return result;
         }
     }
-}
+
+    private Sort resolveDiscountSort(String sortBy, boolean asc) {
+        String property = switch (sortBy == null ? "" : sortBy) {
+            case "endDate" -> "endDate";
+            case "value" -> "value";
+            case "code" -> "code";
+            default -> "startDate";
+        };
+
+        return asc ? Sort.by(property).ascending() : Sort.by(property).descending();
+    }
+}
