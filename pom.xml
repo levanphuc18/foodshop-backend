@@ -96,12 +96,12 @@
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-mysql</artifactId>
     </dependency>
-    <dependency xmlns="">
+    <dependency>
       <groupId>org.mapstruct</groupId>
       <artifactId>mapstruct</artifactId>
       <version>1.5.5.Final</version>
     </dependency>
-    <dependency xmlns="">
+    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok-mapstruct-binding</artifactId>
       <version>0.2.0</version>
@@ -118,14 +118,14 @@
             <path>
               <groupId>org.projectlombok</groupId>
               <artifactId>lombok</artifactId>
-              <version xmlns="">1.18.30</version>
+              <version>1.18.30</version>
             </path>
-            <path xmlns="">
+            <path>
               <groupId>org.projectlombok</groupId>
               <artifactId>lombok-mapstruct-binding</artifactId>
               <version>0.2.0</version>
             </path>
-            <path xmlns="">
+            <path>
               <groupId>org.mapstruct</groupId>
               <artifactId>mapstruct-processor</artifactId>
               <version>1.5.5.Final</version>
