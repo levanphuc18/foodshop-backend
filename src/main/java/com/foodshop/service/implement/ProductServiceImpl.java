@@ -180,11 +180,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<ProductResponse> getAllProductsAdmin() {
+    public Page<ProductResponse> getAllProductsAdmin(Integer categoryId, int page, int size, boolean asc) {
         // Trả về tất cả cho admin
-        return productRepository.findAll().stream()
-                .map(productMapper::toProductResponse)
-                .collect(Collectors.toList());
+        Sort sort = asc ? Sort.by("productId").ascending() : Sort.by("productId").descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return productRepository.findAllAdmin(categoryId, pageable)
+                .map(productMapper::toProductResponse);
     }
 
     @Override
@@ -213,24 +214,24 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Page<ProductResponse> searchProducts(String keyword, int page, int size, boolean asc) {
+    public Page<ProductResponse> searchProducts(String keyword, Integer categoryId, int page, int size, boolean asc) {
         Sort sort = asc ? Sort.by("price").ascending() : Sort.by("price").descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         String kw = (keyword != null) ? keyword : "";
         // Luôn lọc sản phẩm active khi tìm kiếm công khai
-        Page<Product> productPage = productRepository.searchActiveProducts(kw, pageable);
+        Page<Product> productPage = productRepository.searchActiveProducts(kw, categoryId, pageable);
 
         return productPage.map(productMapper::toProductResponse);
     }
 
     @Override
-    public Page<ProductResponse> searchProductsAdmin(String keyword, int page, int size, boolean asc) {
+    public Page<ProductResponse> searchProductsAdmin(String keyword, Integer categoryId, int page, int size, boolean asc) {
         Sort sort = asc ? Sort.by("price").ascending() : Sort.by("price").descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         String kw = (keyword != null) ? keyword : "";
-        Page<Product> productPage = productRepository.findByNameContainingIgnoreCase(kw, pageable);
+        Page<Product> productPage = productRepository.searchAdminProducts(kw, categoryId, pageable);
 
         return productPage.map(productMapper::toProductResponse);
     }

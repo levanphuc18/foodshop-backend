@@ -33,6 +33,7 @@ public interface ProductMapper {
     @Mapping(target = "discountType", expression = "java(computeDiscountType(product))")
     @Mapping(target = "discountUnit", expression = "java(computeDiscountUnit(product))")
     @Mapping(target = "maxDiscount", expression = "java(computeMaxDiscount(product))")
+    @Mapping(target = "productStatus", expression = "java(computeProductStatus(product))")
     @Mapping(target = "isActive", source = "isActive")
     ProductResponse toProductResponse(Product product);
 
@@ -158,6 +159,16 @@ public interface ProductMapper {
             return discount.getMaxDiscount();
         }
         return null;
+    }
+
+    default String computeProductStatus(Product product) {
+        if (product.getQuantity() == null || product.getQuantity() <= 0) {
+            return "OUT_OF_STOCK";
+        }
+        if (product.getQuantity() <= 10) {
+            return "LOW_STOCK";
+        }
+        return "IN_STOCK";
     }
 
     @Mapping(target = "isActive", source = "isActive")

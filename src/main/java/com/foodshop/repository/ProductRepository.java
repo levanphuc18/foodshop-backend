@@ -22,6 +22,38 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
            countQuery = "SELECT count(p) FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<Product> findByNameContainingIgnoreCase(@Param("keyword") String keyword, Pageable pageable);
 
+    @Query(value = """
+            SELECT DISTINCT p
+            FROM Product p
+            LEFT JOIN FETCH p.images
+            WHERE (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """,
+           countQuery = """
+            SELECT count(p)
+            FROM Product p
+            WHERE (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """)
+    Page<Product> findAllAdmin(@Param("categoryId") Integer categoryId, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT p
+            FROM Product p
+            LEFT JOIN FETCH p.images
+            WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """,
+           countQuery = """
+            SELECT count(p)
+            FROM Product p
+            WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """)
+    Page<Product> searchAdminProducts(
+            @Param("keyword") String keyword,
+            @Param("categoryId") Integer categoryId,
+            Pageable pageable
+    );
+
     @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images")
     List<Product> findAll();
 
@@ -34,4 +66,25 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = "SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.images WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.isActive = true",
            countQuery = "SELECT count(p) FROM Product p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.isActive = true")
     Page<Product> searchActiveProducts(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query(value = """
+            SELECT DISTINCT p
+            FROM Product p
+            LEFT JOIN FETCH p.images
+            WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND p.isActive = true
+              AND (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """,
+           countQuery = """
+            SELECT count(p)
+            FROM Product p
+            WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND p.isActive = true
+              AND (:categoryId IS NULL OR p.category.categoryId = :categoryId)
+            """)
+    Page<Product> searchActiveProducts(
+            @Param("keyword") String keyword,
+            @Param("categoryId") Integer categoryId,
+            Pageable pageable
+    );
 }

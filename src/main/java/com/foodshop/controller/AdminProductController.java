@@ -2,12 +2,12 @@ package com.foodshop.controller;
 
 import com.foodshop.dto.ApiResponse;
 import com.foodshop.dto.request.ProductRequest;
+import com.foodshop.dto.response.PageResponse;
 import com.foodshop.dto.response.ProductResponse;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -34,25 +34,33 @@ public class AdminProductController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getAllProductsAdmin() {
-        List<ProductResponse> responses = productService.getAllProductsAdmin();
-        ApiResponse<List<ProductResponse>> apiResponse = new ApiResponse<>(
+    public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> getAllProductsAdmin(
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "false") boolean asc) {
+        ApiResponse<PageResponse<ProductResponse>> apiResponse = new ApiResponse<>(
                 GlobalCode.SUCCESS,
                 "Admin product list fetched successfully.",
-                responses
+                PageResponse.from(productService.getAllProductsAdmin(categoryId, page, size, asc))
         );
         return ResponseEntity.ok(apiResponse);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<ProductResponse>> searchProductsAdmin(
+    public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> searchProductsAdmin(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "true") boolean asc
     ) {
-        Page<ProductResponse> result = productService.searchProductsAdmin(keyword, page, size, asc);
-        return ResponseEntity.ok(result);
+        ApiResponse<PageResponse<ProductResponse>> apiResponse = new ApiResponse<>(
+                GlobalCode.SUCCESS,
+                "Admin products fetched successfully.",
+                PageResponse.from(productService.searchProductsAdmin(keyword, categoryId, page, size, asc))
+        );
+        return ResponseEntity.ok(apiResponse);
     }
 
     @GetMapping("/category/{categoryId}")

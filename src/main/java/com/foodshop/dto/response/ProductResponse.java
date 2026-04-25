@@ -25,5 +25,6 @@ public class ProductResponse {
     private Integer discountId;
     private Integer categoryId;
     private BigDecimal maxDiscount;
+    private String productStatus;
     private Boolean isActive;
-}
+}

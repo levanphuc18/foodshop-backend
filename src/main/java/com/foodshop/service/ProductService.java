@@ -22,13 +22,13 @@ public interface ProductService {
 
     List<ProductResponse> getAllProducts();
 
-    List<ProductResponse> getAllProductsAdmin();
+    Page<ProductResponse> getAllProductsAdmin(Integer categoryId, int page, int size, boolean asc);
 
     List<ProductResponse> getProductsByCategory(Integer categoryId);
 
     List<ProductResponse> getProductsByCategoryAdmin(Integer categoryId);
 
-    Page<ProductResponse> searchProducts(String keyword, int page, int size, boolean asc);
+    Page<ProductResponse> searchProducts(String keyword, Integer categoryId, int page, int size, boolean asc);
 
-    Page<ProductResponse> searchProductsAdmin(String keyword, int page, int size, boolean asc);
+    Page<ProductResponse> searchProductsAdmin(String keyword, Integer categoryId, int page, int size, boolean asc);
 }
