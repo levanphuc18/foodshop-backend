@@ -1,10 +1,12 @@
 package com.foodshop.service.implement;
 
+import com.foodshop.dto.request.BulkAssignDiscountRequest;
 import com.foodshop.dto.request.ProductRequest;
 import com.foodshop.dto.response.ProductResponse;
 import com.foodshop.entity.Category;
 import com.foodshop.entity.Discount;
 import com.foodshop.entity.Product;
+import com.foodshop.entity.ProductImage;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
 import com.foodshop.mapper.ProductMapper;
@@ -12,16 +14,22 @@ import com.foodshop.repository.CategoryRepository;
 import com.foodshop.repository.DiscountRepository;
 import com.foodshop.repository.ProductRepository;
 import com.foodshop.service.CloudinaryService;
-import com.foodshop.entity.ProductImage;
 import com.foodshop.service.ProductService;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -94,10 +102,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         if (request.getImageFiles() != null && !request.getImageFiles().isEmpty()) {
-            // Xóa ảnh cũ
             product.getImages().clear();
-            productRepository.saveAndFlush(product); // Đảm bảo xóa ảnh cũ trước khi thêm mới
-            
+            productRepository.saveAndFlush(product);
+
             for (MultipartFile file : request.getImageFiles()) {
                 if (file != null && !file.isEmpty()) {
                     String url = cloudinaryService.uploadFile(file);
@@ -121,7 +128,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new GlobalException(GlobalCode.PRODUCT_NOT_FOUND));
         try {
             productRepository.delete(product);
-            productRepository.flush(); // Cưỡng bức flush để bắt lỗi database ngay lập tức
+            productRepository.flush();
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             throw new GlobalException(GlobalCode.PRODUCT_IN_USE);
         } catch (Exception e) {
@@ -131,14 +138,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public void bulkAssignDiscount(com.foodshop.dto.request.BulkAssignDiscountRequest request) {
+    public void bulkAssignDiscount(BulkAssignDiscountRequest request) {
         Discount discount = null;
         if (request.getDiscountId() != null) {
             discount = discountRepository.findById(request.getDiscountId())
                     .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
-            
+
             if (discount.getType() != com.foodshop.enums.DiscountType.PRODUCT) {
-                throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID); // Only PRODUCT type discounts can be assigned
+                throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
             }
         }
 
@@ -150,19 +157,20 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponse getProductById(Integer id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new GlobalException(GlobalCode.PRODUCT_NOT_FOUND));
-        
-        // Khách hàng chỉ được xem sản phẩm active
+
         if (product.getIsActive() == null || !product.getIsActive()) {
             throw new GlobalException(GlobalCode.PRODUCT_NOT_FOUND);
         }
-        
+
         return productMapper.toProductResponse(product);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponse getProductByIdAdmin(Integer id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new GlobalException(GlobalCode.PRODUCT_NOT_FOUND));
@@ -170,31 +178,49 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAllProducts() {
-        // Luôn lọc sản phẩm active cho API lấy danh sách chung
         List<Product> products = productRepository.findAllActive();
-        
         return products.stream()
                 .map(productMapper::toProductResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public Page<ProductResponse> getAllProductsAdmin(Integer categoryId, int page, int size, boolean asc) {
-        // Trả về tất cả cho admin
-        Sort sort = asc ? Sort.by("productId").ascending() : Sort.by("productId").descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
-        return productRepository.findAllAdmin(categoryId, pageable)
-                .map(productMapper::toProductResponse);
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getAllProducts(
+            String search,
+            Integer categoryId,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+        return findProducts(search, categoryId, null, true, minPrice, maxPrice, page, size, sortBy, sortDir);
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getAllProductsAdmin(
+            String search,
+            Integer categoryId,
+            String status,
+            Boolean isActive,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+        return findProducts(search, categoryId, status, isActive, null, null, page, size, sortBy, sortDir);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductResponse> getProductsByCategory(Integer categoryId) {
         if (!categoryRepository.existsById(categoryId)) {
             throw new GlobalException(GlobalCode.CATEGORY_NOT_FOUND);
         }
-        
-        // Luôn lọc sản phẩm active cho khách hàng xem theo danh mục
+
         List<Product> products = productRepository.findActiveByCategoryId(categoryId);
 
         return products.stream()
@@ -203,6 +229,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponse> getProductsByCategoryAdmin(Integer categoryId) {
         if (!categoryRepository.existsById(categoryId)) {
             throw new GlobalException(GlobalCode.CATEGORY_NOT_FOUND);
@@ -213,26 +240,102 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public Page<ProductResponse> searchProducts(String keyword, Integer categoryId, int page, int size, boolean asc) {
-        Sort sort = asc ? Sort.by("price").ascending() : Sort.by("price").descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+    private Page<ProductResponse> findProducts(
+            String search,
+            Integer categoryId,
+            String status,
+            Boolean isActive,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+        Pageable pageable = PageRequest.of(page, size, resolveProductSort(sortBy, sortDir));
+        Specification<Product> specification = buildProductSpecification(search, categoryId, status, isActive, minPrice, maxPrice);
+        Page<Product> productPage = productRepository.findAll(specification, pageable);
 
-        String kw = (keyword != null) ? keyword : "";
-        // Luôn lọc sản phẩm active khi tìm kiếm công khai
-        Page<Product> productPage = productRepository.searchActiveProducts(kw, categoryId, pageable);
+        List<ProductResponse> content = productPage.getContent().stream()
+                .map(productMapper::toProductResponse)
+                .toList();
 
-        return productPage.map(productMapper::toProductResponse);
+        return new PageImpl<>(content, pageable, productPage.getTotalElements());
     }
 
-    @Override
-    public Page<ProductResponse> searchProductsAdmin(String keyword, Integer categoryId, int page, int size, boolean asc) {
-        Sort sort = asc ? Sort.by("price").ascending() : Sort.by("price").descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+    private Specification<Product> buildProductSpecification(
+            String search,
+            Integer categoryId,
+            String status,
+            Boolean isActive,
+            BigDecimal minPrice,
+            BigDecimal maxPrice) {
+        String normalizedSearch = search == null ? "" : search.trim().toLowerCase();
+        String normalizedStatus = status == null ? null : status.trim().toUpperCase();
 
-        String kw = (keyword != null) ? keyword : "";
-        Page<Product> productPage = productRepository.searchAdminProducts(kw, categoryId, pageable);
+        return (root, query, cb) -> {
+            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                root.fetch("images", JoinType.LEFT);
+                query.distinct(true);
+            }
 
-        return productPage.map(productMapper::toProductResponse);
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (!normalizedSearch.isBlank()) {
+                List<Predicate> searchPredicates = new ArrayList<>();
+                searchPredicates.add(cb.like(cb.lower(root.get("name")), "%" + normalizedSearch + "%"));
+                searchPredicates.add(cb.like(cb.lower(root.get("description")), "%" + normalizedSearch + "%"));
+                if (normalizedSearch.chars().allMatch(Character::isDigit)) {
+                    searchPredicates.add(cb.equal(root.get("productId"), Integer.valueOf(normalizedSearch)));
+                }
+                predicates.add(cb.or(searchPredicates.toArray(new Predicate[0])));
+            }
+
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("category").get("categoryId"), categoryId));
+            }
+
+            if (isActive != null) {
+                predicates.add(cb.equal(root.get("isActive"), isActive));
+            }
+
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+            }
+
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            if (normalizedStatus != null && !normalizedStatus.isBlank()) {
+                Predicate statusPredicate = switch (normalizedStatus) {
+                    case "IN_STOCK" -> cb.greaterThan(root.get("quantity"), 10);
+                    case "LOW_STOCK" -> cb.and(
+                            cb.greaterThan(root.get("quantity"), 0),
+                            cb.lessThanOrEqualTo(root.get("quantity"), 10)
+                    );
+                    case "OUT_OF_STOCK" -> cb.lessThanOrEqualTo(root.get("quantity"), 0);
+                    default -> null;
+                };
+
+                if (statusPredicate != null) {
+                    predicates.add(statusPredicate);
+                }
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private Sort resolveProductSort(String sortBy, String sortDir) {
+        String property = switch (sortBy == null ? "" : sortBy) {
+            case "name" -> "name";
+            case "price" -> "price";
+            case "quantity" -> "quantity";
+            case "createdAt" -> "createdAt";
+            default -> "productId";
+        };
+
+        boolean ascending = "ASC".equalsIgnoreCase(sortDir);
+        return ascending ? Sort.by(property).ascending() : Sort.by(property).descending();
     }
 }

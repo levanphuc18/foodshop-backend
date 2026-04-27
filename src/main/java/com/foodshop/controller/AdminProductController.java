@@ -1,6 +1,7 @@
 package com.foodshop.controller;
 
 import com.foodshop.dto.ApiResponse;
+import com.foodshop.dto.request.BulkAssignDiscountRequest;
 import com.foodshop.dto.request.ProductRequest;
 import com.foodshop.dto.response.PageResponse;
 import com.foodshop.dto.response.ProductResponse;
@@ -13,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/admin/products")
@@ -35,30 +37,59 @@ public class AdminProductController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> getAllProductsAdmin(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean isActive,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "false") boolean asc) {
+            @RequestParam(defaultValue = "productId") String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) Boolean asc) {
         ApiResponse<PageResponse<ProductResponse>> apiResponse = new ApiResponse<>(
                 GlobalCode.SUCCESS,
                 "Admin product list fetched successfully.",
-                PageResponse.from(productService.getAllProductsAdmin(categoryId, page, size, asc))
+                PageResponse.from(productService.getAllProductsAdmin(
+                        normalizeSearch(search, keyword),
+                        categoryId,
+                        status,
+                        isActive,
+                        page,
+                        size,
+                        sortBy,
+                        normalizeSortDir(sortDir, asc)
+                ))
         );
         return ResponseEntity.ok(apiResponse);
     }
 
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> searchProductsAdmin(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean isActive,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "true") boolean asc
+            @RequestParam(defaultValue = "productId") String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) Boolean asc
     ) {
         ApiResponse<PageResponse<ProductResponse>> apiResponse = new ApiResponse<>(
                 GlobalCode.SUCCESS,
                 "Admin products fetched successfully.",
-                PageResponse.from(productService.searchProductsAdmin(keyword, categoryId, page, size, asc))
+                PageResponse.from(productService.getAllProductsAdmin(
+                        normalizeSearch(search, keyword),
+                        categoryId,
+                        status,
+                        isActive,
+                        page,
+                        size,
+                        sortBy,
+                        normalizeSortDir(sortDir, asc)
+                ))
         );
         return ResponseEntity.ok(apiResponse);
     }
@@ -113,7 +144,7 @@ public class AdminProductController {
 
     @PostMapping("/assign-discount")
     public ResponseEntity<ApiResponse<Void>> bulkAssignDiscount(
-            @RequestBody @Valid com.foodshop.dto.request.BulkAssignDiscountRequest request) {
+            @RequestBody @Valid BulkAssignDiscountRequest request) {
         productService.bulkAssignDiscount(request);
         ApiResponse<Void> apiResponse = new ApiResponse<>(
                 GlobalCode.SUCCESS,
@@ -121,5 +152,16 @@ public class AdminProductController {
                 null
         );
         return ResponseEntity.ok(apiResponse);
+    }
+
+    private String normalizeSearch(String search, String keyword) {
+        return search != null ? search : keyword;
+    }
+
+    private String normalizeSortDir(String sortDir, Boolean asc) {
+        if (sortDir != null && !sortDir.isBlank()) {
+            return sortDir.toUpperCase(Locale.ROOT);
+        }
+        return Boolean.TRUE.equals(asc) ? "ASC" : "DESC";
     }
 }
