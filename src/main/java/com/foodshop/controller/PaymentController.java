@@ -6,8 +6,12 @@ import com.foodshop.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 
@@ -17,6 +21,9 @@ import java.io.IOException;
 public class PaymentController {
 
     private final PaymentService paymentService;
+
+    @Value("${app.frontend.url:http://localhost:3000}")
+    private String frontendUrl;
 
     @GetMapping("/create-url")
     public ResponseEntity<ApiResponse<String>> createPaymentUrl(
@@ -29,11 +36,10 @@ public class PaymentController {
     @GetMapping("/vnpay-return")
     public void vnpayReturn(HttpServletRequest request, HttpServletResponse response) throws IOException {
         boolean success = paymentService.processVnpayReturn(request);
-        // Chuyển hướng người dùng về Frontend sau khi VNPay xử lý xong
         if (success) {
-            response.sendRedirect("http://localhost:3000/orders?payment_status=success");
+            response.sendRedirect(frontendUrl + "/orders?payment_status=success");
         } else {
-            response.sendRedirect("http://localhost:3000/orders?payment_status=failed");
+            response.sendRedirect(frontendUrl + "/orders?payment_status=failed");
         }
     }
 }

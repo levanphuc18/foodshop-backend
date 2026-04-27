@@ -16,7 +16,15 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
+import java.util.TimeZone;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +40,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new GlobalException(GlobalCode.ORDER_NOT_FOUND));
 
         if (order.getStatus() != OrderStatus.PENDING) {
-            throw new RuntimeException("Chỉ đơn hàng đang chờ (PENDING) mới có thể thực hiện thanh toán.");
+            throw new GlobalException(GlobalCode.ORDER_STATUS_INVALID_FOR_PAYMENT);
         }
 
         Map<String, String> vnpParams = buildVnPayParams(order, request);
@@ -92,8 +100,8 @@ public class PaymentServiceImpl implements PaymentService {
         for (String fieldName : fieldNames) {
             String fieldValue = params.get(fieldName);
             if (fieldValue != null && !fieldValue.isEmpty()) {
-                sj.add(URLEncoder.encode(fieldName, StandardCharsets.UTF_8) + "=" +
-                        URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
+                sj.add(URLEncoder.encode(fieldName, StandardCharsets.UTF_8) + "="
+                        + URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
             }
         }
         return sj.toString();
@@ -101,7 +109,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Map<String, String> extractVnPayFields(HttpServletRequest request) {
         Map<String, String> fields = new HashMap<>();
-        for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements();) {
+        for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements(); ) {
             String fieldName = params.nextElement();
             String fieldValue = request.getParameter(fieldName);
             if (fieldValue != null && !fieldValue.isEmpty() && !fieldName.startsWith("vnp_SecureHash")) {
@@ -112,8 +120,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private boolean updateOrderStatusToPaid(String txnRef) {
-        if (txnRef == null || !txnRef.contains("_"))
+        if (txnRef == null || !txnRef.contains("_")) {
             return false;
+        }
 
         try {
             Integer orderId = Integer.parseInt(txnRef.split("_")[1]);

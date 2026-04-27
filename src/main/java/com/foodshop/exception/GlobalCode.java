@@ -21,7 +21,9 @@ public enum GlobalCode {
     USERNAME_EXISTS(1001, "Username already exists."),
     EMAIL_EXISTS(1003, "Email already exists."),
     USER_NOT_FOUND(3002, "User not found."),
-    ACCOUNT_DISABLED(3003, "Tài khoản của bạn hiện tại bị khóa. Liên hệ admin.."),
+    ACCOUNT_DISABLED(3003, "Your account is disabled. Please contact admin."),
+    INVALID_REFRESH_TOKEN(4011, "Invalid or expired refresh token."),
+    INVALID_JWT_TOKEN(4012, "Invalid or tampered token."),
     INVALID_CURRENT_PASSWORD(4001, "Current password is incorrect."),
     PASSWORD_MISMATCH(4002, "New password and confirm password do not match."),
 
@@ -42,6 +44,7 @@ public enum GlobalCode {
 
     // ORDER
     ORDER_NOT_FOUND(2004, "Order not found."),
+    ORDER_STATUS_INVALID_FOR_PAYMENT(6003, "Only orders in PENDING status can be paid."),
 
     // DISCOUNT
     DISCOUNT_CODE_EXISTS(3001, "Discount code already exists."),
@@ -53,7 +56,6 @@ public enum GlobalCode {
     INVALID_MIN_ORDER_AMOUNT(5001, "MinOrderAmount must not be provided for product-based discounts."),
     INVALID_MAX_DISCOUNT(5002, "MaxDiscount must not be provided for product-based discounts."),
     INVALID_PERCENTAGE_VALUE(5003, "Percentage value must be between 0 and 100."),
-
 
     // PAYMENT
     PAYMENT_NOT_FOUND(6001, "Payment not found."),

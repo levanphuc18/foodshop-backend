@@ -36,7 +36,6 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${jwt_refresh_expiration}")
@@ -66,7 +65,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public RefreshTokenResponse generateRefreshToken(Integer userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
@@ -82,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
                 .orElse(null);
 
         if (token == null || token.getExpiryDate().isBefore(Instant.now()) || !token.getUser().getEnabled()) {
-            return null;
+            throw new GlobalException(GlobalCode.INVALID_REFRESH_TOKEN);
         }
 
         return token.getUser().getUsername();
@@ -91,7 +90,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String createAccessTokenFromRefreshToken(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Khong tim thay username: " + username));
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", user.getRole().name());
         return jwtUtil.generateAccessToken(username, claims);
@@ -127,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
     public Integer getUserIdByUsername(String username) {
         Integer userId = userRepository.getUserIdByUsername(username);
         if (userId == null) {
-            throw new UsernameNotFoundException("Khong tim thay username: " + username);
+            throw new GlobalException(GlobalCode.USER_NOT_FOUND);
         }
         return userId;
     }
@@ -136,6 +135,6 @@ public class AuthServiceImpl implements AuthService {
     public String getRoleByUsername(String username) {
         return userRepository.findByUsername(username)
                 .map(user -> user.getRole().name())
-                .orElseThrow(() -> new UsernameNotFoundException("Khong tim thay username: " + username));
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
     }
 }
