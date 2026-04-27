@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/api/v1/admin/orders")
 @RequiredArgsConstructor
@@ -21,14 +23,23 @@ public class AdminOrderController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<OrderResponse>>> getAllOrders(
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false) String sortDir,
             @RequestParam(defaultValue = "false") boolean asc) {
         PageResponse<OrderResponse> responses = PageResponse.from(
-                orderService.getAllOrdersAdmin(keyword, status, page, size, sortBy, asc)
+                orderService.getAllOrdersAdmin(
+                        search != null ? search : keyword,
+                        status,
+                        page,
+                        size,
+                        sortBy,
+                        normalizeAsc(sortDir, asc)
+                )
         );
         return ResponseEntity.ok(
                 new ApiResponse<>(GlobalCode.SUCCESS, "All orders fetched successfully.", responses));
@@ -42,5 +53,12 @@ public class AdminOrderController {
         OrderResponse response = orderService.updateOrderStatus(id, status);
         return ResponseEntity.ok(
                 new ApiResponse<>(GlobalCode.SUCCESS, "Order status updated.", response));
+    }
+
+    private boolean normalizeAsc(String sortDir, boolean asc) {
+        if (sortDir == null || sortDir.isBlank()) {
+            return asc;
+        }
+        return "ASC".equalsIgnoreCase(sortDir.trim().toUpperCase(Locale.ROOT));
     }
 }
