@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
@@ -21,15 +23,25 @@ public class AdminUserController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAllUsers(
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) Role role,
             @RequestParam(required = false) Boolean enabled,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false) String sortDir,
             @RequestParam(defaultValue = "false") boolean asc) {
         PageResponse<UserResponse> users = PageResponse.from(
-                userService.getAllUsersAdmin(keyword, role, enabled, page, size, sortBy, asc)
+                userService.getAllUsersAdmin(
+                        search != null ? search : keyword,
+                        role,
+                        enabled,
+                        page,
+                        size,
+                        sortBy,
+                        normalizeAsc(sortDir, asc)
+                )
         );
         return ResponseEntity.ok(new ApiResponse<>(GlobalCode.SUCCESS, users));
     }
@@ -45,5 +57,12 @@ public class AdminUserController {
         UserResponse user = userService.toggleUserStatus(id);
         String message = user.getEnabled() ? "User account enabled." : "User account disabled.";
         return ResponseEntity.ok(new ApiResponse<>(GlobalCode.SUCCESS, message, user));
+    }
+
+    private boolean normalizeAsc(String sortDir, boolean asc) {
+        if (sortDir == null || sortDir.isBlank()) {
+            return asc;
+        }
+        return "ASC".equalsIgnoreCase(sortDir.trim().toUpperCase(Locale.ROOT));
     }
 }
