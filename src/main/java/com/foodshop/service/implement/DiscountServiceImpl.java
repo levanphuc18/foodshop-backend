@@ -94,7 +94,10 @@ public class DiscountServiceImpl implements DiscountService {
     @Override
     @Transactional(readOnly = true)
     public List<DiscountResponse> getAllDiscounts() {
+        LocalDate today = LocalDate.now();
         return discountRepository.findAll().stream()
+                .filter(discount -> discount.getStatus() == DiscountStatus.ACTIVE)
+                .filter(discount -> !today.isBefore(discount.getStartDate()) && !today.isAfter(discount.getEndDate()))
                 .map(discountMapper::toDiscountResponse)
                 .collect(Collectors.toList());
     }

@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/api/v1/admin/discounts")
 @RequiredArgsConstructor
@@ -25,15 +27,25 @@ public class AdminDiscountController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<DiscountResponse>>> getAllDiscounts(
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) DiscountStatus status,
             @RequestParam(required = false) DiscountType type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "startDate") String sortBy,
+            @RequestParam(required = false) String sortDir,
             @RequestParam(defaultValue = "false") boolean asc) {
         PageResponse<DiscountResponse> responses = PageResponse.from(
-                discountService.getAllDiscountsAdmin(keyword, status, type, page, size, sortBy, asc)
+                discountService.getAllDiscountsAdmin(
+                        search != null ? search : keyword,
+                        status,
+                        type,
+                        page,
+                        size,
+                        sortBy,
+                        normalizeAsc(sortDir, asc)
+                )
         );
         return ResponseEntity.ok(new ApiResponse<>(GlobalCode.SUCCESS, "All discounts retrieved.", responses));
     }
@@ -70,5 +82,12 @@ public class AdminDiscountController {
         DiscountResponse response = discountService.toggleDiscountStatus(id);
         String message = "Discount status updated to " + response.getStatus();
         return ResponseEntity.ok(new ApiResponse<>(GlobalCode.SUCCESS, message, response));
+    }
+
+    private boolean normalizeAsc(String sortDir, boolean asc) {
+        if (sortDir == null || sortDir.isBlank()) {
+            return asc;
+        }
+        return "ASC".equalsIgnoreCase(sortDir.trim().toUpperCase(Locale.ROOT));
     }
 }
