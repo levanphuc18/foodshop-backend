@@ -1,6 +1,11 @@
 package com.foodshop.security;
 
-import io.jsonwebtoken.*;
+import com.foodshop.exception.GlobalCode;
+import com.foodshop.exception.GlobalException;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,7 +67,7 @@ public class JwtUtil {
                     .parseClaimsJws(token)
                     .getBody();
         } catch (JwtException ex) {
-            throw new RuntimeException("Invalid or tampered token!", ex);
+            throw new GlobalException(GlobalCode.INVALID_JWT_TOKEN);
         }
     }
 

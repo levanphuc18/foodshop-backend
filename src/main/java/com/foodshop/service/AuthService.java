@@ -14,5 +14,6 @@ public interface AuthService {
     String createAccessTokenFromRefreshToken(String username);
     AuthResponse register(RegisterRequest registerRequest);
     Integer getUserIdByUsername(String username);
+    String getRoleByUsername(String username);
 }
 

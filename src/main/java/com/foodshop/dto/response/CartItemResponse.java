@@ -2,6 +2,8 @@ package com.foodshop.dto.response;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,5 +14,7 @@ public class CartItemResponse {
     private String username;
     private Integer productId;
     private String productName;
+    private BigDecimal productPrice;
+    private String productImageUrl;
     private Integer quantity;
 }

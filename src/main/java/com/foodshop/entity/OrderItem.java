@@ -37,14 +37,14 @@ public class OrderItem {
 
     // Snapshot giá sản phẩm tại thời điểm mua
     @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Price must be greater than or equal to 0")
     @Digits(integer = 8, fraction = 2, message = "Price format is invalid")
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
     // Tổng = price * quantity
     @NotNull(message = "Subtotal is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Subtotal must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Subtotal must be greater than or equal to 0")
     @Digits(integer = 8, fraction = 2, message = "Subtotal format is invalid")
     @Column(name = "subtotal", nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;

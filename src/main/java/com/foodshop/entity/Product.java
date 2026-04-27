@@ -8,6 +8,7 @@ import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Entity
 @Table(name = "products")
@@ -41,13 +42,13 @@ public class Product {
     private BigDecimal price;
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 1, message = "Quantity must not be negative")
+    @Min(value = 0, message = "Quantity must not be negative")
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Size(max = 255, message = "Image URL must not exceed 255 characters")
-    @Column(name = "image_url", length = 255)
-    private String imageUrl;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductImage> images = new ArrayList<>();
 
     @Column(name = "created_at", columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
@@ -63,6 +64,10 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private Boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {

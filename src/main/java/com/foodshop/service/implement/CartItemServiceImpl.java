@@ -53,10 +53,6 @@ public class CartItemServiceImpl implements CartItemService {
                 .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
 
         List<CartItem> items = cartItemRepository.findByUser_UserId(userId);
-        if (items.isEmpty()) {
-            throw new GlobalException(GlobalCode.CART_NOT_FOUND);
-        }
-
         return items.stream()
                 .map(cartItemMapper::toCartItemResponse)
                 .collect(Collectors.toList());

@@ -36,14 +36,13 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${jwt_refresh_expiration}")
     private long refreshExpirationMs;
 
     protected AuthResponse convertToRegisterResponse(User user, String accessToken, String refreshToken) {
-        return new AuthResponse(user.getUsername(), accessToken, refreshToken, user.getUserId());
+        return new AuthResponse(user.getUsername(), accessToken, refreshToken, user.getUserId(), user.getRole());
     }
 
     @Override
@@ -66,7 +65,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public RefreshTokenResponse generateRefreshToken(Integer userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
@@ -81,8 +80,8 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken token = refreshTokenRepository.findByRefreshToken(refreshToken)
                 .orElse(null);
 
-        if (token == null || token.getExpiryDate().isBefore(Instant.now())) {
-            return null;
+        if (token == null || token.getExpiryDate().isBefore(Instant.now()) || !token.getUser().getEnabled()) {
+            throw new GlobalException(GlobalCode.INVALID_REFRESH_TOKEN);
         }
 
         return token.getUser().getUsername();
@@ -90,8 +89,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String createAccessTokenFromRefreshToken(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", "CUSTOMER");
+        claims.put("roles", user.getRole().name());
         return jwtUtil.generateAccessToken(username, claims);
     }
 
@@ -125,8 +126,15 @@ public class AuthServiceImpl implements AuthService {
     public Integer getUserIdByUsername(String username) {
         Integer userId = userRepository.getUserIdByUsername(username);
         if (userId == null) {
-            throw new UsernameNotFoundException("Khong tim thay username: " + username);
+            throw new GlobalException(GlobalCode.USER_NOT_FOUND);
         }
         return userId;
+    }
+
+    @Override
+    public String getRoleByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .map(user -> user.getRole().name())
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
     }
 }

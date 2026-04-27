@@ -6,15 +6,18 @@ import com.foodshop.dto.request.RegisterRequest;
 import com.foodshop.dto.response.AuthResponse;
 import com.foodshop.dto.ApiResponse;
 import com.foodshop.dto.response.JwtResponse;
+import com.foodshop.enums.Role;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.service.AuthService;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Slf4j
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -33,7 +36,7 @@ public class AuthController {
                 "Account created successfully.",
                 authResponse
         );
-        System.out.println("Registering user: " + authResponse.getUsername());
+        log.info("Registered new user with username={}", authResponse.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
     }
 
@@ -41,12 +44,14 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest authRequest) {
         JwtResponse jwtResponse = authService.generateToken(authRequest.getUsername(), authRequest.getPassword());
         Integer userId = authService.getUserIdByUsername(authRequest.getUsername());
+        String role = authService.getRoleByUsername(authRequest.getUsername());
 
         AuthResponse authResponse = new AuthResponse(
                 authRequest.getUsername(),
                 jwtResponse.getAccessToken(),
                 jwtResponse.getRefreshToken(),
-                userId
+                userId,
+                Role.valueOf(role)
         );
         ApiResponse<AuthResponse> response = new ApiResponse<>(
                 GlobalCode.SUCCESS,
@@ -59,38 +64,17 @@ public class AuthController {
     @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<JwtResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
+        String username = authService.validateRefreshTokenAndGetUsername(refreshToken);
+        String newAccessToken = authService.createAccessTokenFromRefreshToken(username);
 
-        try {
-            String username = authService.validateRefreshTokenAndGetUsername(refreshToken);
+        JwtResponse jwtResponse = new JwtResponse(newAccessToken, refreshToken);
 
-            if (username == null) {
-                ApiResponse<JwtResponse> errorResponse = new ApiResponse<>(
-                        GlobalCode.BAD_REQUEST,
-                        "Invalid or expired refresh token.",
-                        null
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+        ApiResponse<JwtResponse> response = new ApiResponse<>(
+                GlobalCode.SUCCESS,
+                "Refresh token successful.",
+                jwtResponse
+        );
 
-            String newAccessToken = authService.createAccessTokenFromRefreshToken(username);
-
-            JwtResponse jwtResponse = new JwtResponse(newAccessToken, refreshToken);
-
-            ApiResponse<JwtResponse> response = new ApiResponse<>(
-                    GlobalCode.SUCCESS,
-                    "Refresh token successful.",
-                    jwtResponse
-            );
-
-            return ResponseEntity.status(HttpStatus.OK).body(response);
-
-        } catch (Exception e) {
-            ApiResponse<JwtResponse> errorResponse = new ApiResponse<>(
-                    GlobalCode.UNAUTHORIZED,
-                    "Error refreshing token: " + e.getMessage(),
-                    null
-            );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 }
