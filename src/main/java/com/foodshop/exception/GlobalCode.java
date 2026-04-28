@@ -36,6 +36,7 @@ public enum GlobalCode {
     PRODUCT_NAME_EXISTS(2001, "Product name already exists."),
     PRODUCT_NOT_FOUND(2002, "Product not found."),
     INSUFFICIENT_STOCK(2003, "Not enough stock available."),
+    PRODUCT_DISCOUNT_CONFLICT(2004, "Some selected products already have another product discount."),
     PRODUCT_IN_USE(2005, "Cannot delete product because it is in use by orders or carts."),
 
     // CART

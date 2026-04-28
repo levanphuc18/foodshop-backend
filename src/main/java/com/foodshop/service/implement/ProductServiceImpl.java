@@ -7,6 +7,8 @@ import com.foodshop.entity.Category;
 import com.foodshop.entity.Discount;
 import com.foodshop.entity.Product;
 import com.foodshop.entity.ProductImage;
+import com.foodshop.enums.DiscountStatus;
+import com.foodshop.enums.DiscountType;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
 import com.foodshop.mapper.ProductMapper;
@@ -29,8 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -139,19 +144,46 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void bulkAssignDiscount(BulkAssignDiscountRequest request) {
+        Set<Integer> requestedIds = new LinkedHashSet<>(request.getProductIds());
+        if (requestedIds.isEmpty()) {
+            throw new GlobalException(GlobalCode.BAD_REQUEST);
+        }
+
         Discount discount = null;
         if (request.getDiscountId() != null) {
             discount = discountRepository.findById(request.getDiscountId())
                     .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
 
-            if (discount.getType() != com.foodshop.enums.DiscountType.PRODUCT) {
+            if (discount.getType() != DiscountType.PRODUCT) {
+                throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
+            }
+
+            if (discount.getStatus() != DiscountStatus.ACTIVE || discount.getEndDate().isBefore(LocalDate.now())) {
                 throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
             }
         }
 
-        List<Product> products = productRepository.findAllById(request.getProductIds());
+        List<Product> products = productRepository.findAllById(requestedIds);
+        if (products.size() != requestedIds.size()) {
+            throw new GlobalException(GlobalCode.PRODUCT_NOT_FOUND);
+        }
+
+        boolean replaceExisting = Boolean.TRUE.equals(request.getReplaceExisting());
+        Discount selectedDiscount = discount;
+        if (selectedDiscount != null && !replaceExisting) {
+            boolean hasConflict = products.stream()
+                    .anyMatch(product -> product.getDiscount() != null
+                            && !product.getDiscount().getDiscountId().equals(selectedDiscount.getDiscountId()));
+            if (hasConflict) {
+                throw new GlobalException(GlobalCode.PRODUCT_DISCOUNT_CONFLICT);
+            }
+        }
+
         for (Product product : products) {
-            product.setDiscount(discount);
+            if (selectedDiscount == null || replaceExisting || product.getDiscount() == null
+                    || product.getDiscount().getDiscountId().equals(selectedDiscount.getDiscountId())) {
+                product.setDiscount(selectedDiscount);
+            }
         }
         productRepository.saveAll(products);
     }
