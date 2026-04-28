@@ -24,6 +24,7 @@ public enum GlobalCode {
     ACCOUNT_DISABLED(3003, "Your account is disabled. Please contact admin."),
     INVALID_REFRESH_TOKEN(4011, "Invalid or expired refresh token."),
     INVALID_JWT_TOKEN(4012, "Invalid or tampered token."),
+    RATE_LIMIT_EXCEEDED(4291, "Too many requests. Please try again later."),
     INVALID_CURRENT_PASSWORD(4001, "Current password is incorrect."),
     PASSWORD_MISMATCH(4002, "New password and confirm password do not match."),
 

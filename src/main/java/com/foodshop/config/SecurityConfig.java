@@ -1,6 +1,7 @@
 package com.foodshop.config;
 
 import com.foodshop.security.JwtAuthenticationFilter;
+import com.foodshop.security.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,7 @@ import java.util.List;
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -55,6 +57,7 @@ public class SecurityConfig {
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
