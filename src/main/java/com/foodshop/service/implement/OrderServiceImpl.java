@@ -37,6 +37,9 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final DiscountRepository discountRepository;
+    private final com.foodshop.service.NotificationService notificationService;
+    private final NotificationEmailService notificationEmailService;
+    private final OrderEmailModelFactory orderEmailModelFactory;
 
     @Override
     @Transactional
@@ -164,6 +167,10 @@ public class OrderServiceImpl implements OrderService {
         // 7. Xoá giỏ hàng sau khi đặt hàng thành công
         cartItemRepository.deleteAll(cartItems);
 
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            notificationEmailService.sendOrderCreatedEmail(orderEmailModelFactory.buildForCreated(saved));
+        }
+
         return toOrderResponse(saved);
     }
 
@@ -256,7 +263,11 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(newStatus);
-        return toOrderResponse(orderRepository.save(order));
+        Order savedOrder = orderRepository.save(order);
+        if (currentStatus != newStatus) {
+            notificationService.notifyOrderStatusChanged(savedOrder);
+        }
+        return toOrderResponse(savedOrder);
     }
 
     // ────────────────────────────────────────────────

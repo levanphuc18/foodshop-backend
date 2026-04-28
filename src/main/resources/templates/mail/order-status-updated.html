@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foodshop Order Update</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f8fafc; font-family:Arial, sans-serif; color:#0f172a;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f8fafc; padding:24px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px; background-color:#ffffff; border-radius:20px; overflow:hidden; border:1px solid #e2e8f0;">
+                <tr>
+                    <td style="padding:28px 32px; background:linear-gradient(135deg, #0f172a, #334155); color:#ffffff;">
+                        <div style="font-size:12px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; opacity:0.9;">Foodshop</div>
+                        <h1 style="margin:10px 0 8px; font-size:28px; line-height:1.2;">Order status updated</h1>
+                        <p style="margin:0; font-size:14px; line-height:1.6; opacity:0.95;">
+                            Hello <span th:text="${customerName}">Customer</span>, your order status has been updated.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 32px;">
+                        <div style="padding:18px; border:1px solid #e2e8f0; border-radius:16px; background-color:#f8fafc;">
+                            <div style="font-size:12px; color:#64748b; text-transform:uppercase; font-weight:700; letter-spacing:1px;">Order ID</div>
+                            <div style="margin-top:6px; font-size:22px; font-weight:700; color:#0f172a;" th:text="'#' + ${orderId}">#100</div>
+                            <div style="margin-top:14px;">
+                                <span style="display:inline-block; padding:8px 12px; border-radius:999px; background-color:#dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px;">
+                                    <span th:text="${statusLabel}">Confirmed</span>
+                                </span>
+                            </div>
+                            <p style="margin:14px 0 0; font-size:14px; line-height:1.7; color:#334155;" th:text="${statusMessage}">
+                                Status message
+                            </p>
+                        </div>
+
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
+                            <tr>
+                                <td valign="top" style="width:56%; padding-right:16px;">
+                                    <div style="padding:18px; border:1px solid #e2e8f0; border-radius:16px; background-color:#ffffff;">
+                                        <div style="font-size:12px; color:#64748b; text-transform:uppercase; font-weight:700; letter-spacing:1px;">Delivery details</div>
+                                        <div style="margin-top:10px; font-size:14px; line-height:1.7; color:#0f172a;" th:text="${shippingAddress}">Address</div>
+                                        <div style="margin-top:12px; font-size:13px; color:#475569;">
+                                            <strong>Placed at:</strong> <span th:text="${createdAtFormatted}">28/04/2026</span>
+                                        </div>
+                                        <div th:if="${shippingNote != null and !shippingNote.isEmpty()}" style="margin-top:8px; font-size:13px; color:#475569;">
+                                            <strong>Note:</strong> <span th:text="${shippingNote}">Note</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td valign="top" style="width:44%;">
+                                    <div style="padding:18px; border:1px solid #e2e8f0; border-radius:16px; background-color:#ffffff;">
+                                        <div style="font-size:12px; color:#64748b; text-transform:uppercase; font-weight:700; letter-spacing:1px;">Payment summary</div>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px;">
+                                            <tr>
+                                                <td style="padding:6px 0; font-size:14px; color:#475569;">Items subtotal</td>
+                                                <td align="right" style="padding:6px 0; font-size:14px; color:#0f172a;" th:text="${#numbers.formatDecimal(totalAmount, 1, 'COMMA', 0, 'POINT')} + ' VND'">0 VND</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0; font-size:14px; color:#475569;">Discount</td>
+                                                <td align="right" style="padding:6px 0; font-size:14px; color:#0f172a;" th:text="'-' + ${#numbers.formatDecimal(discountAmount, 1, 'COMMA', 0, 'POINT')} + ' VND'">-0 VND</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0; font-size:14px; color:#475569;">Shipping fee</td>
+                                                <td align="right" style="padding:6px 0; font-size:14px; color:#0f172a;" th:text="${#numbers.formatDecimal(shippingFee, 1, 'COMMA', 0, 'POINT')} + ' VND'">0 VND</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0; font-size:14px; color:#475569;">Shipping discount</td>
+                                                <td align="right" style="padding:6px 0; font-size:14px; color:#0f172a;" th:text="'-' + ${#numbers.formatDecimal(shippingDiscount, 1, 'COMMA', 0, 'POINT')} + ' VND'">-0 VND</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" style="padding:10px 0 0; border-bottom:1px solid #e2e8f0;"></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-top:12px; font-size:15px; font-weight:700; color:#0f172a;">Total</td>
+                                                <td align="right" style="padding-top:12px; font-size:20px; font-weight:700; color:#1d4ed8;" th:text="${#numbers.formatDecimal(finalAmount, 1, 'COMMA', 0, 'POINT')} + ' VND'">0 VND</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <h2 style="margin:24px 0 12px; font-size:18px; color:#0f172a;">Items in this order</h2>
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden;">
+                            <tr>
+                                <td style="padding:0 20px;">
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                        <tr th:each="item, iter : ${items}">
+                                            <td style="padding:16px 0; border-bottom:1px solid #e2e8f0;" th:styleappend="${iter.last} ? 'border-bottom:none;' : ''">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                                    <tr>
+                                                        <td style="width:64px; padding-right:14px;" valign="top">
+                                                            <img
+                                                                th:if="${item.imageUrl != null and !item.imageUrl.isEmpty()}"
+                                                                th:src="${item.imageUrl}"
+                                                                alt="Product image"
+                                                                width="56"
+                                                                height="56"
+                                                                style="display:block; width:56px; height:56px; border-radius:12px; object-fit:cover; border:1px solid #e2e8f0;"
+                                                            />
+                                                            <div
+                                                                th:if="${item.imageUrl == null or item.imageUrl.isEmpty()}"
+                                                                style="width:56px; height:56px; border-radius:12px; background-color:#e2e8f0; border:1px solid #e2e8f0;"
+                                                            ></div>
+                                                        </td>
+                                                        <td style="font-size:15px; font-weight:700; color:#0f172a;" th:text="${item.productName}">Product name</td>
+                                                        <td align="right" style="font-size:15px; font-weight:700; color:#0f172a;" th:text="${#numbers.formatDecimal(item.subtotal, 1, 'COMMA', 0, 'POINT')} + ' VND'">100,000 VND</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td></td>
+                                                        <td style="padding-top:6px; font-size:13px; color:#64748b;" th:text="'Qty: ' + ${item.quantity} + ' x ' + ${#numbers.formatDecimal(item.unitPrice, 1, 'COMMA', 0, 'POINT')} + ' VND'">Qty</td>
+                                                        <td></td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div style="margin-top:24px; text-align:center;">
+                            <a th:href="${orderUrl}" style="display:inline-block; padding:14px 22px; border-radius:12px; background-color:#1d4ed8; color:#ffffff; text-decoration:none; font-size:14px; font-weight:700;">
+                                View order details
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:18px 32px 28px; text-align:center; font-size:12px; line-height:1.7; color:#64748b;">
+                        This is an automated email from Foodshop. If you need support, please reply to this email or contact our customer service team.<br>
+                        &copy; <span th:text="${currentYear}">2026</span> Foodshop.
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
