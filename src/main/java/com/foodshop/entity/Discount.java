@@ -62,4 +62,13 @@ public class Discount {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private DiscountStatus status;
+
+    @Column(name = "usage_limit")
+    private Integer usageLimit;
+
+    @Column(name = "used_count", nullable = false)
+    private Integer usedCount = 0;
+
+    @Column(name = "per_user_limit")
+    private Integer perUserLimit;
 }

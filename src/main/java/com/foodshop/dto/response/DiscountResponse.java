@@ -20,4 +20,7 @@ public class DiscountResponse {
     private LocalDate startDate;
     private LocalDate endDate;
     private DiscountStatus status;
+    private Integer usageLimit;
+    private Integer usedCount;
+    private Integer perUserLimit;
 }

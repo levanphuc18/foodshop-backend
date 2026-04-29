@@ -36,4 +36,11 @@ public class DiscountRequest {
 
     @NotNull(message = "Status is required")
     private DiscountStatus status;
+
+    @Positive(message = "Usage limit must be greater than 0 when provided")
+    private Integer usageLimit;
+
+    @Positive(message = "Per-user limit must be greater than 0 when provided")
+    private Integer perUserLimit;
+
 }

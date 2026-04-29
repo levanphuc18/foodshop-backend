@@ -11,6 +11,7 @@ public class OrderEmailItemModel {
     String productName;
     Integer quantity;
     BigDecimal unitPrice;
+    BigDecimal originalUnitPrice;
     BigDecimal subtotal;
     String imageUrl;
 }

@@ -7,10 +7,12 @@ import com.foodshop.entity.Discount;
 import com.foodshop.enums.DiscountStatus;
 import com.foodshop.enums.DiscountType;
 import com.foodshop.enums.DiscountUnit;
+import com.foodshop.enums.OrderStatus;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
 import com.foodshop.mapper.DiscountMapper;
 import com.foodshop.repository.DiscountRepository;
+import com.foodshop.repository.OrderAppliedDiscountRepository;
 import com.foodshop.service.DiscountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,8 +34,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DiscountServiceImpl implements DiscountService {
 
+    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
+
     private final DiscountRepository discountRepository;
     private final DiscountMapper discountMapper;
+    private final OrderAppliedDiscountRepository orderAppliedDiscountRepository;
 
     @Override
     public DiscountResponse createDiscount(DiscountRequest request) {
@@ -44,43 +49,12 @@ public class DiscountServiceImpl implements DiscountService {
         validateDiscountRequest(request);
 
         Discount discount = discountMapper.toDiscount(request);
+        if (discount.getUsedCount() == null) {
+            discount.setUsedCount(0);
+        }
         discount = discountRepository.save(discount);
 
         return discountMapper.toDiscountResponse(discount);
-    }
-
-    private void validateDiscountRequest(DiscountRequest request) {
-        // Date validation
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new GlobalException(GlobalCode.DISCOUNT_INVALID_DATE_RANGE);
-        }
-
-        // Percentage validation: value must be 0-100
-        if (request.getDiscountUnit() == com.foodshop.enums.DiscountUnit.PERCENT) {
-            if (request.getValue().doubleValue() > 100) {
-                throw new GlobalException(GlobalCode.INVALID_PERCENTAGE_VALUE);
-            }
-        } else {
-            // Unit = AMOUNT: maxDiscount không có nghĩa (vì đã là số tiền cố định)
-            if (request.getMaxDiscount() != null) {
-                throw new GlobalException(GlobalCode.INVALID_MAX_DISCOUNT);
-            }
-        }
-
-        // Type specific validation
-        if (request.getType() == DiscountType.PRODUCT) {
-            // Product discount: không dùng minOrderAmount (giảm thẳng vào sản phẩm)
-            if (request.getMinOrderAmount() != null) {
-                throw new GlobalException(GlobalCode.INVALID_MIN_ORDER_AMOUNT);
-            }
-            // maxDiscount chỉ hợp lệ khi unit = PERCENT (để cap số tiền tối đa được giảm)
-            // (đã validate ở trên: AMOUNT + maxDiscount → lỗi)
-        } else {
-            // ORDER hoặc SHIPPING: cần minOrderAmount
-            if (request.getMinOrderAmount() == null) {
-                throw new GlobalException(GlobalCode.MIN_ORDER_AMOUNT_REQUIRED);
-            }
-        }
     }
 
     @Override
@@ -97,7 +71,8 @@ public class DiscountServiceImpl implements DiscountService {
         LocalDate today = LocalDate.now();
         return discountRepository.findAll().stream()
                 .filter(discount -> discount.getStatus() == DiscountStatus.ACTIVE)
-                .filter(discount -> !today.isBefore(discount.getStartDate()) && !today.isAfter(discount.getEndDate()))
+                .filter(discount -> isWithinDateRange(discount, today))
+                .filter(this::hasRemainingUsage)
                 .map(discountMapper::toDiscountResponse)
                 .collect(Collectors.toList());
     }
@@ -140,12 +115,10 @@ public class DiscountServiceImpl implements DiscountService {
         }
 
         validateDiscountRequest(request);
-
         discountMapper.updateDiscountFromRequest(request, existing);
 
         return discountMapper.toDiscountResponse(discountRepository.save(existing));
     }
-
 
     @Override
     public void deleteDiscount(Integer id) {
@@ -172,96 +145,164 @@ public class DiscountServiceImpl implements DiscountService {
 
     @Override
     @Transactional(readOnly = true)
-    public CouponValidationResponse validateCoupon(String code, BigDecimal totalAmount) {
-        // Tìm coupon
-        Discount discount = discountRepository.findByCode(code.trim()).orElse(null);
-        if (discount == null) {
-            return CouponValidationResponse.builder()
-                    .valid(false)
-                    .code(code)
-                    .message("Mã giảm giá không tồn tại.")
-                    .build();
-        }
+    public CouponValidationResponse validateCoupon(String code, BigDecimal totalAmount, Integer userId) {
+        String normalizedCode = normalizeCode(code);
+        try {
+            Discount discount = validateDiscountForCheckout(normalizedCode, totalAmount, userId);
+            BigDecimal discountAmount = calculateDiscountAmount(
+                    discount,
+                    discount.getType() == DiscountType.SHIPPING ? DEFAULT_SHIPPING_FEE : totalAmount
+            );
 
-        // Chỉ ORDER và SHIPPING coupon mới có thể nhập tay khi checkout
-        if (discount.getType() == DiscountType.PRODUCT) {
             return CouponValidationResponse.builder()
-                    .valid(false)
-                    .code(code)
-                    .message("Mã này chỉ áp dụng trực tiếp cho sản phẩm.")
-                    .build();
-        }
-
-        // Kiểm tra trạng thái và thời hạn
-        LocalDate today = LocalDate.now();
-        if (discount.getStatus() != DiscountStatus.ACTIVE
-                || today.isBefore(discount.getStartDate())
-                || today.isAfter(discount.getEndDate())) {
-            return CouponValidationResponse.builder()
-                    .valid(false)
-                    .code(code)
-                    .message("Mã giảm giá đã hết hạn hoặc chưa được kích hoạt.")
-                    .build();
-        }
-
-        // Kiểm tra đơn hàng tối thiểu
-        if (discount.getMinOrderAmount() != null
-                && totalAmount.compareTo(discount.getMinOrderAmount()) < 0) {
-            return CouponValidationResponse.builder()
-                    .valid(false)
-                    .code(code)
+                    .valid(true)
+                    .code(discount.getCode())
+                    .type(discount.getType())
+                    .discountUnit(discount.getDiscountUnit())
+                    .value(discount.getValue())
+                    .discountAmount(discountAmount)
                     .minOrderAmount(discount.getMinOrderAmount())
-                    .message("Đơn hàng chưa đạt giá trị tối thiểu " + discount.getMinOrderAmount() + "đ để áp dụng mã này.")
+                    .maxDiscount(discount.getMaxDiscount())
+                    .message(discount.getType() == DiscountType.SHIPPING
+                            ? "Shipping discount is available."
+                            : "Coupon applied successfully.")
                     .build();
-        }
-
-        // Nếu đơn hàng đã 0đ, không cho áp dụng mã giảm giá ORDER (vô nghĩa)
-        // Nhưng vẫn cho áp dụng mã SHIPPING
-        if (discount.getType() == DiscountType.ORDER && totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        } catch (GlobalException ex) {
             return CouponValidationResponse.builder()
                     .valid(false)
-                    .code(code)
-                    .message("Đơn hàng đã là 0đ, không thể áp dụng thêm mã giảm giá đơn hàng.")
+                    .code(normalizedCode)
+                    .message(ex.getMessage())
                     .build();
         }
-
-        // Tính số tiền được giảm
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        if (discount.getType() == DiscountType.ORDER) {
-            discountAmount = calculateDiscountAmount(discount, totalAmount);
-        } else {
-            // SHIPPING: giá trị = số tiền phí ship được giảm
-            discountAmount = discount.getValue();
-        }
-
-        return CouponValidationResponse.builder()
-                .valid(true)
-                .code(discount.getCode())
-                .type(discount.getType())
-                .discountUnit(discount.getDiscountUnit())
-                .value(discount.getValue())
-                .discountAmount(discountAmount)
-                .minOrderAmount(discount.getMinOrderAmount())
-                .maxDiscount(discount.getMaxDiscount())
-                .message(discount.getType() == DiscountType.ORDER
-                        ? "Áp dụng thành công! Bạn được giảm " + discountAmount + "đ."
-                        : "Áp dụng thành công! Phí ship được giảm " + discountAmount + "đ.")
-                .build();
     }
 
-    /** Helper: tính số tiền giảm theo unit (PERCENT hoặc AMOUNT) */
-    private BigDecimal calculateDiscountAmount(Discount discount, BigDecimal baseAmount) {
+    public CouponValidationResponse validateCoupon(String code, BigDecimal totalAmount) {
+        return validateCoupon(code, totalAmount, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Discount validateDiscountForCheckout(String code, BigDecimal totalAmount, Integer userId) {
+        Discount discount = discountRepository.findByCode(normalizeCode(code))
+                .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
+
+        if (discount.getType() == DiscountType.PRODUCT) {
+            throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID, "This code is only for product discounts.");
+        }
+
+        if (discount.getStatus() != DiscountStatus.ACTIVE || !isWithinDateRange(discount, LocalDate.now())) {
+            throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
+        }
+
+        if (!hasRemainingUsage(discount)) {
+            throw new GlobalException(GlobalCode.DISCOUNT_USAGE_LIMIT_REACHED);
+        }
+
+        if (discount.getMinOrderAmount() != null && totalAmount.compareTo(discount.getMinOrderAmount()) < 0) {
+            throw new GlobalException(GlobalCode.DISCOUNT_NOT_APPLICABLE);
+        }
+
+        if (discount.getType() == DiscountType.ORDER && totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new GlobalException(GlobalCode.DISCOUNT_NOT_APPLICABLE, "Order amount must be greater than zero.");
+        }
+
+        if (userId != null && discount.getPerUserLimit() != null) {
+            long activeUsage = orderAppliedDiscountRepository.countActiveUsageByDiscountAndUser(
+                    discount.getDiscountId(),
+                    userId,
+                    OrderStatus.CANCELLED
+            );
+            if (activeUsage >= discount.getPerUserLimit()) {
+                throw new GlobalException(GlobalCode.DISCOUNT_PER_USER_LIMIT_REACHED);
+            }
+        }
+
+        return discount;
+    }
+
+    @Override
+    public BigDecimal calculateDiscountAmount(Discount discount, BigDecimal baseAmount) {
         if (discount.getDiscountUnit() == DiscountUnit.AMOUNT) {
             return discount.getValue().min(baseAmount).setScale(2, RoundingMode.HALF_UP);
-        } else {
-            BigDecimal result = baseAmount
-                    .multiply(discount.getValue().divide(new BigDecimal("100")))
-                    .setScale(2, RoundingMode.HALF_UP);
-            if (discount.getMaxDiscount() != null && result.compareTo(discount.getMaxDiscount()) > 0) {
-                result = discount.getMaxDiscount();
-            }
-            return result;
         }
+
+        BigDecimal result = baseAmount
+                .multiply(discount.getValue().divide(new BigDecimal("100")))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if (discount.getMaxDiscount() != null && result.compareTo(discount.getMaxDiscount()) > 0) {
+            result = discount.getMaxDiscount();
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void reserveUsage(Discount discount) {
+        if (discount.getUsageLimit() == null) {
+            return;
+        }
+
+        int usedCount = discount.getUsedCount() == null ? 0 : discount.getUsedCount();
+        if (usedCount >= discount.getUsageLimit()) {
+            discount.setStatus(DiscountStatus.DISABLED);
+            discountRepository.save(discount);
+            throw new GlobalException(GlobalCode.DISCOUNT_USAGE_LIMIT_REACHED);
+        }
+
+        discount.setUsedCount(usedCount + 1);
+        if (discount.getUsedCount() >= discount.getUsageLimit()) {
+            discount.setStatus(DiscountStatus.DISABLED);
+        }
+        discountRepository.save(discount);
+    }
+
+    @Override
+    @Transactional
+    public void releaseUsage(Discount discount) {
+        if (discount.getUsageLimit() == null) {
+            return;
+        }
+
+        int usedCount = discount.getUsedCount() == null ? 0 : discount.getUsedCount();
+        discount.setUsedCount(Math.max(0, usedCount - 1));
+        if (discount.getStatus() == DiscountStatus.DISABLED
+                && hasRemainingUsage(discount)
+                && isWithinDateRange(discount, LocalDate.now())) {
+            discount.setStatus(DiscountStatus.ACTIVE);
+        }
+        discountRepository.save(discount);
+    }
+
+    private void validateDiscountRequest(DiscountRequest request) {
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new GlobalException(GlobalCode.DISCOUNT_INVALID_DATE_RANGE);
+        }
+
+        if (request.getDiscountUnit() == DiscountUnit.PERCENT && request.getValue().compareTo(new BigDecimal("100")) > 0) {
+            throw new GlobalException(GlobalCode.INVALID_PERCENTAGE_VALUE);
+        }
+
+        if (request.getDiscountUnit() == DiscountUnit.AMOUNT && request.getMaxDiscount() != null) {
+            throw new GlobalException(GlobalCode.INVALID_MAX_DISCOUNT);
+        }
+
+        if (request.getType() == DiscountType.PRODUCT && request.getMinOrderAmount() != null) {
+            throw new GlobalException(GlobalCode.INVALID_MIN_ORDER_AMOUNT);
+        }
+
+        if (request.getType() != DiscountType.PRODUCT && request.getMinOrderAmount() == null) {
+            throw new GlobalException(GlobalCode.MIN_ORDER_AMOUNT_REQUIRED);
+        }
+    }
+
+    private boolean isWithinDateRange(Discount discount, LocalDate today) {
+        return !today.isBefore(discount.getStartDate()) && !today.isAfter(discount.getEndDate());
+    }
+
+    private boolean hasRemainingUsage(Discount discount) {
+        return discount.getUsageLimit() == null
+                || (discount.getUsedCount() == null ? 0 : discount.getUsedCount()) < discount.getUsageLimit();
     }
 
     private Sort resolveDiscountSort(String sortBy, boolean asc) {
@@ -273,5 +314,9 @@ public class DiscountServiceImpl implements DiscountService {
         };
 
         return asc ? Sort.by(property).ascending() : Sort.by(property).descending();
+    }
+
+    private String normalizeCode(String code) {
+        return code == null ? "" : code.trim().toUpperCase();
     }
 }

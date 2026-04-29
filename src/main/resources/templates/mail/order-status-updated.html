@@ -46,6 +46,9 @@
                                         <div th:if="${shippingNote != null and !shippingNote.isEmpty()}" style="margin-top:8px; font-size:13px; color:#475569;">
                                             <strong>Note:</strong> <span th:text="${shippingNote}">Note</span>
                                         </div>
+                                        <div th:if="${discountCodes != null and !discountCodes.isEmpty()}" style="margin-top:8px; font-size:13px; color:#475569;">
+                                            <strong>Applied codes:</strong> <span th:text="${#strings.listJoin(discountCodes, ', ')}">CODE</span>
+                                        </div>
                                     </div>
                                 </td>
                                 <td valign="top" style="width:44%;">
@@ -67,6 +70,10 @@
                                             <tr>
                                                 <td style="padding:6px 0; font-size:14px; color:#475569;">Shipping discount</td>
                                                 <td align="right" style="padding:6px 0; font-size:14px; color:#0f172a;" th:text="'-' + ${#numbers.formatDecimal(shippingDiscount, 1, 'COMMA', 0, 'POINT')} + ' VND'">-0 VND</td>
+                                            </tr>
+                                            <tr th:if="${totalSavings != null and totalSavings.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                                                <td style="padding:6px 0; font-size:14px; color:#059669; font-weight:700;">Total saved</td>
+                                                <td align="right" style="padding:6px 0; font-size:14px; color:#059669; font-weight:700;" th:text="${#numbers.formatDecimal(totalSavings, 1, 'COMMA', 0, 'POINT')} + ' VND'">0 VND</td>
                                             </tr>
                                             <tr>
                                                 <td colspan="2" style="padding:10px 0 0; border-bottom:1px solid #e2e8f0;"></td>
@@ -109,7 +116,12 @@
                                                     </tr>
                                                     <tr>
                                                         <td></td>
-                                                        <td style="padding-top:6px; font-size:13px; color:#64748b;" th:text="'Qty: ' + ${item.quantity} + ' x ' + ${#numbers.formatDecimal(item.unitPrice, 1, 'COMMA', 0, 'POINT')} + ' VND'">Qty</td>
+                                                        <td style="padding-top:6px; font-size:13px; color:#64748b;">
+                                                            <span th:if="${item.originalUnitPrice != null and item.originalUnitPrice.compareTo(item.unitPrice) > 0}"
+                                                                  th:text="${#numbers.formatDecimal(item.originalUnitPrice, 1, 'COMMA', 0, 'POINT')} + ' VND'"
+                                                                  style="margin-right:8px; text-decoration:line-through; color:#94a3b8;">0 VND</span>
+                                                            <span th:text="'Qty: ' + ${item.quantity} + ' x ' + ${#numbers.formatDecimal(item.unitPrice, 1, 'COMMA', 0, 'POINT')} + ' VND'">Qty</span>
+                                                        </td>
                                                         <td></td>
                                                     </tr>
                                                 </table>

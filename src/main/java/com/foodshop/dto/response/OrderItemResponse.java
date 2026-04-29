@@ -16,12 +16,8 @@ public class OrderItemResponse {
     private Integer productId;
     private String productName;
     private String productImageUrl;
-
-    /** Giá đã snapshot tại thời điểm mua (salePrice nếu có, ngược lại là price gốc) */
     private BigDecimal price;
-
+    private BigDecimal originalPrice;
     private Integer quantity;
-
-    /** Thành tiền = price * quantity */
     private BigDecimal subtotal;
 }

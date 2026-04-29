@@ -3,6 +3,7 @@ package com.foodshop.service.implement;
 import com.foodshop.dto.email.OrderEmailItemModel;
 import com.foodshop.dto.email.OrderEmailModel;
 import com.foodshop.entity.Order;
+import com.foodshop.entity.OrderAppliedDiscount;
 import com.foodshop.entity.OrderItem;
 import com.foodshop.entity.Product;
 import com.foodshop.enums.OrderStatus;
@@ -44,13 +45,25 @@ public class OrderEmailModelFactory {
                 .shippingAddress(order.getShippingAddress())
                 .shippingNote(order.getShippingNote())
                 .discountCode(order.getDiscountCode())
+                .discountCodes(mapDiscountCodes(order.getAppliedDiscounts()))
                 .orderUrl(frontendUrl + "/orders/" + order.getOrderId())
                 .totalAmount(safeAmount(order.getTotalAmount()))
                 .discountAmount(safeAmount(order.getDiscountAmount()))
                 .shippingFee(safeAmount(order.getShippingFee()))
                 .shippingDiscount(safeAmount(order.getShippingDiscount()))
                 .finalAmount(safeAmount(order.getFinalAmount()))
+                .totalSavings(safeAmount(order.getDiscountAmount()).add(safeAmount(order.getShippingDiscount())))
                 .items(mapItems(order.getOrderItems()));
+    }
+
+    private List<String> mapDiscountCodes(List<OrderAppliedDiscount> appliedDiscounts) {
+        if (appliedDiscounts == null) {
+            return List.of();
+        }
+
+        return appliedDiscounts.stream()
+                .map(OrderAppliedDiscount::getCode)
+                .toList();
     }
 
     private List<OrderEmailItemModel> mapItems(List<OrderItem> orderItems) {
@@ -74,6 +87,7 @@ public class OrderEmailModelFactory {
                 .productName(product != null ? product.getName() : "Product")
                 .quantity(item.getQuantity())
                 .unitPrice(safeAmount(item.getPrice()))
+                .originalUnitPrice(safeAmount(item.getOriginalPrice()))
                 .subtotal(safeAmount(item.getSubtotal()))
                 .imageUrl(imageUrl)
                 .build();

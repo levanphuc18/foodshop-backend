@@ -3,6 +3,8 @@ package com.foodshop.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class OrderRequest {
@@ -19,4 +21,5 @@ public class OrderRequest {
      * Nếu null → không áp dụng mã giảm giá.
      */
     private String discountCode;
+    private List<String> discountCodes = new ArrayList<>();
 }

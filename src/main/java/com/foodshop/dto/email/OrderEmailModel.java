@@ -19,11 +19,13 @@ public class OrderEmailModel {
     String shippingAddress;
     String shippingNote;
     String discountCode;
+    List<String> discountCodes;
     String orderUrl;
     BigDecimal totalAmount;
     BigDecimal discountAmount;
     BigDecimal shippingFee;
     BigDecimal shippingDiscount;
     BigDecimal finalAmount;
+    BigDecimal totalSavings;
     List<OrderEmailItemModel> items;
 }
