@@ -3,14 +3,26 @@ package com.foodshop.service.implement;
 import com.foodshop.dto.request.OrderRequest;
 import com.foodshop.dto.response.OrderItemResponse;
 import com.foodshop.dto.response.OrderResponse;
-import com.foodshop.entity.*;
+import com.foodshop.entity.CartItem;
+import com.foodshop.entity.Discount;
+import com.foodshop.entity.Order;
+import com.foodshop.entity.OrderAppliedDiscount;
+import com.foodshop.entity.OrderItem;
+import com.foodshop.entity.Product;
+import com.foodshop.entity.User;
 import com.foodshop.enums.DiscountStatus;
 import com.foodshop.enums.DiscountType;
 import com.foodshop.enums.OrderStatus;
 import com.foodshop.exception.GlobalCode;
 import com.foodshop.exception.GlobalException;
-import com.foodshop.repository.*;
+import com.foodshop.repository.CartItemRepository;
+import com.foodshop.repository.OrderAppliedDiscountRepository;
+import com.foodshop.repository.OrderRepository;
+import com.foodshop.repository.ProductRepository;
+import com.foodshop.repository.UserRepository;
+import com.foodshop.service.DiscountService;
 import com.foodshop.service.OrderService;
+import com.foodshop.service.ShippingProvider;
 import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,7 +37,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,135 +51,121 @@ public class OrderServiceImpl implements OrderService {
     private final CartItemRepository cartItemRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final DiscountRepository discountRepository;
+    private final OrderAppliedDiscountRepository orderAppliedDiscountRepository;
+    private final DiscountService discountService;
     private final com.foodshop.service.NotificationService notificationService;
     private final NotificationEmailService notificationEmailService;
     private final OrderEmailModelFactory orderEmailModelFactory;
+    private final ShippingProvider shippingProvider;
 
     @Override
     @Transactional
     public OrderResponse createOrder(Integer userId, OrderRequest request) {
-        // 1. Xác minh user
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
 
-        // 2. Lấy giỏ hàng
         List<CartItem> cartItems = cartItemRepository.findByUser_UserId(userId);
         if (cartItems == null || cartItems.isEmpty()) {
             throw new GlobalException(GlobalCode.CART_NOT_ITEM);
         }
 
-        // 3. Kiểm tra tồn kho và tạo OrderItems với snapshot giá
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (CartItem cartItem : cartItems) {
             Product product = cartItem.getProduct();
-
-            // Kiểm tra tồn kho
             if (product.getQuantity() < cartItem.getQuantity()) {
                 throw new GlobalException(GlobalCode.INSUFFICIENT_STOCK);
             }
 
-            // Snapshot giá: ưu tiên salePrice (nếu discount PRODUCT còn hiệu lực), fallback price gốc
             BigDecimal snapshotPrice = resolveSalePrice(product);
-
             BigDecimal subtotal = snapshotPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
 
-            OrderItem orderItem = OrderItem.builder()
-                    .product(product)
-                    .quantity(cartItem.getQuantity())
-                    .price(snapshotPrice)
-                    .subtotal(subtotal)
-                    .build();
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProduct(product);
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setPrice(snapshotPrice);
+            orderItem.setOriginalPrice(product.getPrice());
+            orderItem.setSubtotal(subtotal);
             orderItems.add(orderItem);
 
             totalAmount = totalAmount.add(subtotal);
 
-            // Trừ tồn kho
             product.setQuantity(product.getQuantity() - cartItem.getQuantity());
             productRepository.save(product);
         }
 
-        // 4. Xử lý ORDER / SHIPPING discount (coupon nhập tay)
-        BigDecimal baseShippingFee = new BigDecimal("30000"); // Mặc định phí ship là 30k
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        BigDecimal shippingDiscount = BigDecimal.ZERO;
-        Discount appliedDiscount = null;
-        String appliedCode = null;
+        List<String> requestedCodes = normalizeDiscountCodes(request);
+        Discount orderDiscount = null;
+        Discount shippingDiscount = null;
+        List<Discount> validatedDiscounts = new ArrayList<>();
 
-        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
-            appliedDiscount = discountRepository.findByCode(request.getDiscountCode().trim())
-                    .orElseThrow(() -> new GlobalException(GlobalCode.DISCOUNT_NOT_FOUND));
-
-            // Validate: phải là type ORDER hoặc SHIPPING
-            if (appliedDiscount.getType() != DiscountType.ORDER
-                    && appliedDiscount.getType() != DiscountType.SHIPPING) {
-                throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
-            }
-
-            // Validate: phải ACTIVE và trong thời hạn
-            LocalDate today = LocalDate.now();
-            if (appliedDiscount.getStatus() != com.foodshop.enums.DiscountStatus.ACTIVE
-                    || today.isBefore(appliedDiscount.getStartDate())
-                    || today.isAfter(appliedDiscount.getEndDate())) {
-                throw new GlobalException(GlobalCode.DISCOUNT_NOT_VALID);
-            }
-
-            // Validate: đơn hàng đủ giá trị tối thiểu
-            if (appliedDiscount.getMinOrderAmount() != null
-                    && totalAmount.compareTo(appliedDiscount.getMinOrderAmount()) < 0) {
-                throw new GlobalException(GlobalCode.DISCOUNT_NOT_APPLICABLE);
-            }
-
-            if (appliedDiscount.getType() == DiscountType.ORDER) {
-                if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new GlobalException(GlobalCode.DISCOUNT_NOT_APPLICABLE, "Đơn hàng đã là 0đ, không thể áp dụng thêm mã giảm giá đơn hàng.");
+        for (String code : requestedCodes) {
+            Discount discount = discountService.validateDiscountForCheckout(code, totalAmount, userId);
+            validatedDiscounts.add(discount);
+            if (discount.getType() == DiscountType.ORDER) {
+                if (orderDiscount != null) {
+                    throw new GlobalException(GlobalCode.DISCOUNT_STACKING_NOT_ALLOWED, "Only one ORDER coupon can be applied per order.");
                 }
-                // Tính giảm giá đơn hàng theo unit (PERCENT hoặc AMOUNT)
-                discountAmount = calculateDiscountAmount(appliedDiscount, totalAmount);
-            } else {
-                // SHIPPING: giảm phí vận chuyển, không được vượt quá phí ship cơ bản
-                shippingDiscount = appliedDiscount.getValue().min(baseShippingFee);
+                orderDiscount = discount;
+            } else if (discount.getType() == DiscountType.SHIPPING) {
+                if (shippingDiscount != null) {
+                    throw new GlobalException(GlobalCode.DISCOUNT_STACKING_NOT_ALLOWED, "Only one SHIPPING coupon can be applied per order.");
+                }
+                shippingDiscount = discount;
             }
-
-            appliedCode = appliedDiscount.getCode();
         }
 
-        // 5. Tính finalAmount = (Tiền hàng - giảm giá hàng) + (Phí ship - giảm phí ship)
-        BigDecimal finalTotalAmount = totalAmount.subtract(discountAmount);
+        BigDecimal baseShippingFee = shippingProvider.calculateFee(totalAmount, request.getShippingAddress())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderDiscountAmount = orderDiscount == null
+                ? BigDecimal.ZERO
+                : discountService.calculateDiscountAmount(orderDiscount, totalAmount);
+        BigDecimal shippingDiscountAmount = shippingDiscount == null
+                ? BigDecimal.ZERO
+                : discountService.calculateDiscountAmount(shippingDiscount, baseShippingFee);
+        if (shippingDiscountAmount.compareTo(baseShippingFee) > 0) {
+            shippingDiscountAmount = baseShippingFee;
+        }
+
+        BigDecimal finalTotalAmount = totalAmount.subtract(orderDiscountAmount);
         if (finalTotalAmount.compareTo(BigDecimal.ZERO) < 0) {
             finalTotalAmount = BigDecimal.ZERO;
         }
-        BigDecimal finalShippingFee = baseShippingFee.subtract(shippingDiscount);
+
+        BigDecimal finalShippingFee = baseShippingFee.subtract(shippingDiscountAmount);
         if (finalShippingFee.compareTo(BigDecimal.ZERO) < 0) {
             finalShippingFee = BigDecimal.ZERO;
         }
+
         BigDecimal finalAmount = finalTotalAmount.add(finalShippingFee).setScale(2, RoundingMode.HALF_UP);
 
-        // 6. Tạo Order
         Order order = new Order();
         order.setUser(user);
         order.setShippingAddress(request.getShippingAddress());
         order.setShippingNote(request.getShippingNote());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(totalAmount);
-        order.setDiscountAmount(discountAmount);
+        order.setDiscountAmount(orderDiscountAmount);
         order.setShippingFee(baseShippingFee);
-        order.setShippingDiscount(shippingDiscount);
+        order.setShippingDiscount(shippingDiscountAmount);
         order.setFinalAmount(finalAmount);
-        order.setDiscount(appliedDiscount);
-        order.setDiscountCode(appliedCode);
+        order.setDiscount(orderDiscount);
+        order.setDiscountCode(requestedCodes.isEmpty() ? null : String.join(", ", requestedCodes));
 
-        // Gắn order vào từng orderItem
         for (OrderItem item : orderItems) {
             item.setOrder(order);
         }
         order.setOrderItems(orderItems);
 
-        Order saved = orderRepository.save(order);
+        List<OrderAppliedDiscount> appliedDiscounts = buildAppliedDiscounts(order, validatedDiscounts, totalAmount, baseShippingFee);
+        order.setAppliedDiscounts(appliedDiscounts);
 
-        // 7. Xoá giỏ hàng sau khi đặt hàng thành công
+        for (Discount discount : validatedDiscounts) {
+            discountService.reserveUsage(discount);
+        }
+
+        Order saved = orderRepository.save(order);
         cartItemRepository.deleteAll(cartItems);
 
         if (user.getEmail() != null && !user.getEmail().isBlank()) {
@@ -187,17 +188,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<OrderResponse> getAllOrders() {
-        return orderRepository.findAll()
-                .stream()
-                .map(this::toOrderResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public Page<OrderResponse> getAllOrdersAdmin(String keyword, OrderStatus status, int page, int size, String sortBy, boolean asc) {
-        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
         Specification<Order> specification = (root, query, cb) -> {
             query.distinct(true);
 
@@ -242,13 +234,10 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new GlobalException(GlobalCode.ORDER_NOT_FOUND));
 
         OrderStatus currentStatus = order.getStatus();
-
-        // 1. Nếu đơn hàng đã Hoàn thành hoặc đã Hủy thì không được đổi nữa
         if (currentStatus == OrderStatus.COMPLETED || currentStatus == OrderStatus.CANCELLED) {
-            throw new GlobalException(GlobalCode.BAD_REQUEST, "Không thể thay đổi trạng thái của đơn hàng đã kết thúc.");
+            throw new GlobalException(GlobalCode.BAD_REQUEST, "Cannot change the status of a finished order.");
         }
 
-        // 2. Kiểm tra logic chuyển đổi hợp lệ
         boolean isValid = switch (currentStatus) {
             case PENDING -> List.of(OrderStatus.PAID, OrderStatus.CONFIRMED, OrderStatus.CANCELLED).contains(newStatus);
             case PAID -> List.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED).contains(newStatus);
@@ -258,27 +247,71 @@ public class OrderServiceImpl implements OrderService {
         };
 
         if (!isValid && currentStatus != newStatus) {
-            throw new GlobalException(GlobalCode.BAD_REQUEST, 
-                "Chuyển đổi trạng thái từ " + currentStatus + " sang " + newStatus + " là không hợp lệ.");
+            throw new GlobalException(GlobalCode.BAD_REQUEST,
+                    "Invalid status transition from " + currentStatus + " to " + newStatus + ".");
         }
 
         order.setStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
+
+        if (currentStatus != newStatus && newStatus == OrderStatus.CANCELLED) {
+            restoreDiscountUsage(savedOrder);
+        }
+
         if (currentStatus != newStatus) {
             notificationService.notifyOrderStatusChanged(savedOrder);
         }
         return toOrderResponse(savedOrder);
     }
 
-    // ────────────────────────────────────────────────
-    // Private helpers
-    // ────────────────────────────────────────────────
+    private void restoreDiscountUsage(Order order) {
+        List<OrderAppliedDiscount> appliedDiscounts = order.getAppliedDiscounts();
+        if (appliedDiscounts == null || appliedDiscounts.isEmpty()) {
+            return;
+        }
 
-    /**
-     * Tính giá snapshot cho sản phẩm:
-     * - Nếu có PRODUCT discount ACTIVE và trong thời hạn → trả về salePrice
-     * - Ngược lại → trả về price gốc
-     */
+        for (OrderAppliedDiscount appliedDiscount : appliedDiscounts) {
+            if (appliedDiscount.getDiscount() != null) {
+                discountService.releaseUsage(appliedDiscount.getDiscount());
+            }
+        }
+    }
+
+    private List<OrderAppliedDiscount> buildAppliedDiscounts(Order order, List<Discount> discounts, BigDecimal totalAmount, BigDecimal shippingFee) {
+        List<OrderAppliedDiscount> appliedDiscounts = new ArrayList<>();
+        for (Discount discount : discounts) {
+            BigDecimal baseAmount = discount.getType() == DiscountType.SHIPPING ? shippingFee : totalAmount;
+            appliedDiscounts.add(OrderAppliedDiscount.builder()
+                    .order(order)
+                    .discount(discount)
+                    .code(discount.getCode())
+                    .type(discount.getType())
+                    .discountUnit(discount.getDiscountUnit())
+                    .value(discount.getValue())
+                    .appliedAmount(discountService.calculateDiscountAmount(discount, baseAmount))
+                    .build());
+        }
+        return appliedDiscounts;
+    }
+
+    private List<String> normalizeDiscountCodes(OrderRequest request) {
+        Set<String> codes = new LinkedHashSet<>();
+        if (request.getDiscountCodes() != null) {
+            request.getDiscountCodes().stream()
+                    .map(this::normalizeCode)
+                    .filter(code -> !code.isBlank())
+                    .forEach(codes::add);
+        }
+        if (codes.isEmpty() && request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            codes.add(normalizeCode(request.getDiscountCode()));
+        }
+        return new ArrayList<>(codes);
+    }
+
+    private String normalizeCode(String code) {
+        return code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
+    }
+
     private BigDecimal resolveSalePrice(Product product) {
         Discount discount = product.getDiscount();
         if (discount != null
@@ -290,19 +323,17 @@ public class OrderServiceImpl implements OrderService {
 
             BigDecimal salePrice;
             if (discount.getDiscountUnit() == com.foodshop.enums.DiscountUnit.AMOUNT) {
-                // Giảm số tiền cố định
                 salePrice = product.getPrice().subtract(discount.getValue())
                         .setScale(2, RoundingMode.HALF_UP);
-                // Không để salePrice âm
-                if (salePrice.compareTo(BigDecimal.ZERO) < 0) salePrice = BigDecimal.ZERO;
+                if (salePrice.compareTo(BigDecimal.ZERO) < 0) {
+                    salePrice = BigDecimal.ZERO;
+                }
             } else {
-                // PERCENT: giảm theo %
                 BigDecimal pct = discount.getValue();
                 salePrice = product.getPrice()
                         .multiply(BigDecimal.ONE.subtract(pct.divide(new BigDecimal("100"))))
                         .setScale(2, RoundingMode.HALF_UP);
 
-                // Áp dụng maxDiscount cap nếu có (chỉ áp dụng cho PERCENT)
                 if (discount.getMaxDiscount() != null) {
                     BigDecimal saved = product.getPrice().subtract(salePrice);
                     if (saved.compareTo(discount.getMaxDiscount()) > 0) {
@@ -314,28 +345,6 @@ public class OrderServiceImpl implements OrderService {
             return salePrice;
         }
         return product.getPrice();
-    }
-
-    /**
-     * Tính số tiền được giảm theo unit (PERCENT hoặc AMOUNT) của discount.
-     */
-    private BigDecimal calculateDiscountAmount(Discount discount, BigDecimal baseAmount) {
-        BigDecimal result;
-        if (discount.getDiscountUnit() == com.foodshop.enums.DiscountUnit.AMOUNT) {
-            // Giảm số tiền cố định, không vượt quá baseAmount
-            result = discount.getValue().min(baseAmount).setScale(2, RoundingMode.HALF_UP);
-        } else {
-            // PERCENT
-            result = baseAmount
-                    .multiply(discount.getValue().divide(new BigDecimal("100")))
-                    .setScale(2, RoundingMode.HALF_UP);
-            // Áp dụng cap maxDiscount nếu có
-            if (discount.getMaxDiscount() != null
-                    && result.compareTo(discount.getMaxDiscount()) > 0) {
-                result = discount.getMaxDiscount();
-            }
-        }
-        return result;
     }
 
     private Sort resolveOrderSort(String sortBy, boolean asc) {
@@ -352,8 +361,14 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItemResponse> itemResponses = order.getOrderItems() == null
                 ? List.of()
                 : order.getOrderItems().stream()
-                        .map(this::toOrderItemResponse)
-                        .collect(Collectors.toList());
+                .map(this::toOrderItemResponse)
+                .collect(Collectors.toList());
+
+        List<String> appliedCodes = order.getAppliedDiscounts() == null
+                ? List.of()
+                : order.getAppliedDiscounts().stream()
+                .map(OrderAppliedDiscount::getCode)
+                .toList();
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
@@ -367,6 +382,7 @@ public class OrderServiceImpl implements OrderService {
                 .shippingDiscount(order.getShippingDiscount())
                 .finalAmount(order.getFinalAmount())
                 .discountCode(order.getDiscountCode())
+                .discountCodes(appliedCodes)
                 .userId(order.getUser() != null ? order.getUser().getUserId() : null)
                 .username(order.getUser() != null ? order.getUser().getUsername() : null)
                 .fullName(order.getUser() != null ? order.getUser().getFullName() : null)
@@ -375,17 +391,18 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderItemResponse toOrderItemResponse(OrderItem item) {
-        Product p = item.getProduct();
-        String imageUrl = (p.getImages() != null && !p.getImages().isEmpty())
-                ? p.getImages().get(0).getImageUrl()
+        Product product = item.getProduct();
+        String imageUrl = (product.getImages() != null && !product.getImages().isEmpty())
+                ? product.getImages().get(0).getImageUrl()
                 : null;
 
         return OrderItemResponse.builder()
                 .orderItemId(item.getOrderItemId())
-                .productId(p.getProductId())
-                .productName(p.getName())
+                .productId(product.getProductId())
+                .productName(product.getName())
                 .productImageUrl(imageUrl)
                 .price(item.getPrice())
+                .originalPrice(item.getOriginalPrice())
                 .quantity(item.getQuantity())
                 .subtotal(item.getSubtotal())
                 .build();

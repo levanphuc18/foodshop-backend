@@ -29,13 +29,6 @@ public class UserServiceImpl implements UserService {
     private final com.foodshop.repository.RefreshTokenRepository refreshTokenRepository;
 
     @Override
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream()
-                .map(userMapper::toUserResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public Page<UserResponse> getAllUsersAdmin(String keyword, Role role, Boolean enabled, int page, int size, String sortBy, boolean asc) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
         Specification<User> specification = (root, query, cb) -> {

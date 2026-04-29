@@ -7,8 +7,6 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 
 public interface UserService {
-    List<UserResponse> getAllUsers();
-
     Page<UserResponse> getAllUsersAdmin(String keyword, Role role, Boolean enabled, int page, int size, String sortBy, boolean asc);
 
     UserResponse getUserById(Integer id);

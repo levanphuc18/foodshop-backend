@@ -19,14 +19,11 @@ public enum GlobalCode {
 
     // USER
     USERNAME_EXISTS(1001, "Username already exists."),
-    EMAIL_EXISTS(1003, "Email already exists."),
     USER_NOT_FOUND(3002, "User not found."),
     ACCOUNT_DISABLED(3003, "Your account is disabled. Please contact admin."),
     INVALID_REFRESH_TOKEN(4011, "Invalid or expired refresh token."),
     INVALID_JWT_TOKEN(4012, "Invalid or tampered token."),
     RATE_LIMIT_EXCEEDED(4291, "Too many requests. Please try again later."),
-    INVALID_CURRENT_PASSWORD(4001, "Current password is incorrect."),
-    PASSWORD_MISMATCH(4002, "New password and confirm password do not match."),
 
     // CATEGORY
     CATEGORY_NAME_EXISTS(2001, "Category name already exists."),
@@ -54,21 +51,13 @@ public enum GlobalCode {
     DISCOUNT_INVALID_DATE_RANGE(3003, "End date must be greater than start date."),
     DISCOUNT_NOT_VALID(3004, "Discount code is not valid or has expired."),
     DISCOUNT_NOT_APPLICABLE(3005, "The order does not meet the minimum spend for this discount."),
+    DISCOUNT_USAGE_LIMIT_REACHED(3006, "This discount has reached its usage limit."),
+    DISCOUNT_PER_USER_LIMIT_REACHED(3007, "You have reached the allowed number of uses for this discount."),
+    DISCOUNT_STACKING_NOT_ALLOWED(3008, "The selected discount combination is not allowed."),
     MIN_ORDER_AMOUNT_REQUIRED(5000, "MinOrderAmount is required for order-based discounts."),
     INVALID_MIN_ORDER_AMOUNT(5001, "MinOrderAmount must not be provided for product-based discounts."),
     INVALID_MAX_DISCOUNT(5002, "MaxDiscount must not be provided for product-based discounts."),
-    INVALID_PERCENTAGE_VALUE(5003, "Percentage value must be between 0 and 100."),
-
-    // PAYMENT
-    PAYMENT_NOT_FOUND(6001, "Payment not found."),
-    PAYMENT_FAILED(6002, "Payment failed."),
-
-    // REVIEW
-    REVIEW_NOT_FOUND(7001, "Review not found."),
-    ALREADY_REVIEWED(7002, "You have already reviewed this product."),
-
-    // MESSAGE
-    MESSAGE_NOT_FOUND(8001, "Message not found.");
+    INVALID_PERCENTAGE_VALUE(5003; "Percentage value must be between 0 and 100.");
 
     private final int code;
     private final String message;

@@ -12,8 +12,6 @@ public interface OrderService {
 
     List<OrderResponse> getOrdersByUser(Integer userId);
 
-    List<OrderResponse> getAllOrders();
-
     Page<OrderResponse> getAllOrdersAdmin(String keyword, OrderStatus status, int page, int size, String sortBy, boolean asc);
 
     OrderResponse getOrderById(Integer orderId);
