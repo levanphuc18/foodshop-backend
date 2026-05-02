@@ -33,11 +33,19 @@ public class PaymentServiceImpl implements PaymentService {
     private final VNPayConfig vnPayConfig;
     private final OrderRepository orderRepository;
 
+    /**
+     * SECURITY FIX [P0-IDOR]: callerUserId = null nếu ADMIN, ngược lại phải là chủ order.
+     */
     @Override
     @Transactional(readOnly = true)
-    public String createVNPayUrl(Integer orderId, HttpServletRequest request) {
+    public String createVNPayUrl(Integer orderId, Integer callerUserId, HttpServletRequest request) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new GlobalException(GlobalCode.ORDER_NOT_FOUND));
+
+        // Owner check: CUSTOMER chỉ được tạo URL cho order của chính mình
+        if (callerUserId != null && !callerUserId.equals(order.getUser().getUserId())) {
+            throw new GlobalException(GlobalCode.ORDER_NOT_FOUND); // 404 – không lộ sự tồn tại
+        }
 
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new GlobalException(GlobalCode.ORDER_STATUS_INVALID_FOR_PAYMENT);

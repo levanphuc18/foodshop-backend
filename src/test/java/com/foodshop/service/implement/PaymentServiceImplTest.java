@@ -43,7 +43,7 @@ class PaymentServiceImplTest {
         when(orderRepository.findById(5)).thenReturn(Optional.of(order));
 
         GlobalException exception = assertThrows(GlobalException.class,
-                () -> paymentService.createVNPayUrl(5, mock(HttpServletRequest.class)));
+                () -> paymentService.createVNPayUrl(5, null, mock(HttpServletRequest.class)));
 
         assertEquals(GlobalCode.ORDER_STATUS_INVALID_FOR_PAYMENT.getCode(), exception.getCode());
     }

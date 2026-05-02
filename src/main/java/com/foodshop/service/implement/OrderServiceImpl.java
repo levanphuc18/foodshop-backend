@@ -219,11 +219,22 @@ public class OrderServiceImpl implements OrderService {
                 .map(this::toOrderResponse);
     }
 
+    /**
+     * SECURITY FIX [P0-IDOR]: callerUserId = null nếu ADMIN (bỏ qua check),
+     * ngược lại kiểm tra order thuộc về đúng user đang đăng nhập.
+     */
     @Override
     @Transactional(readOnly = true)
-    public OrderResponse getOrderById(Integer orderId) {
+    public OrderResponse getOrderById(Integer orderId, Integer callerUserId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new GlobalException(GlobalCode.ORDER_NOT_FOUND));
+
+        // Owner check: null = ADMIN (bỏ qua), không null = CUSTOMER phải khớp
+        if (callerUserId != null && !callerUserId.equals(order.getUser().getUserId())) {
+            // Trả 404 để không lộ thông tin order tồn tại (tránh enumeration)
+            throw new GlobalException(GlobalCode.ORDER_NOT_FOUND);
+        }
+
         return toOrderResponse(order);
     }
 

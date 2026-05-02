@@ -64,12 +64,25 @@ public class OrderController {
 
     /**
      * Lấy chi tiết một đơn hàng của mình.
+     * SECURITY FIX [P0-IDOR]: Truyền userId của user đang đăng nhập để service kiểm tra owner.
      * GET /api/v1/orders/{id}
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Integer id) {
-        OrderResponse response = orderService.getOrderById(id);
+    public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(GlobalCode.UNAUTHORIZED, "Please log in.", null));
+        }
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        Integer callerUserId = isAdmin ? null : userDetails.getUser().getUserId();
+
+        OrderResponse response = orderService.getOrderById(id, callerUserId);
         return ResponseEntity.ok(
                 new ApiResponse<>(GlobalCode.SUCCESS, "Order fetched successfully.", response));
     }

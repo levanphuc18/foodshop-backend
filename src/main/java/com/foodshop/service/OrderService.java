@@ -14,7 +14,7 @@ public interface OrderService {
 
     Page<OrderResponse> getAllOrdersAdmin(String keyword, OrderStatus status, int page, int size, String sortBy, boolean asc);
 
-    OrderResponse getOrderById(Integer orderId);
+    OrderResponse getOrderById(Integer orderId, Integer callerUserId);
 
     OrderResponse updateOrderStatus(Integer orderId, OrderStatus status);
 }
