@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+
+import java.util.Optional;
 import java.util.UUID;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -151,6 +153,43 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
+    public AuthResponse loginWithGoogle(String email, String fullName) {
+        Optional<User> optionalUser = userRepository.findByEmail(email);
+
+        User user = optionalUser.orElseGet(() -> {
+            User newUser = new User();
+            newUser.setEmail(email);
+            newUser.setFullName((fullName == null || fullName.isBlank()) ? "Google User" : fullName);
+            newUser.setPhoneNumber("0000000000");
+            newUser.setAddress("N/A");
+            newUser.setRole(Role.CUSTOMER);
+            newUser.setEnabled(true);
+            newUser.setPassword(encoder.encode(UUID.randomUUID().toString()));
+
+            String baseUsername = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+            String normalized = baseUsername.replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+            if (normalized.length() < 3) {
+                normalized = "user" + System.currentTimeMillis();
+            }
+            String candidate = normalized;
+            int suffix = 1;
+            while (userRepository.existsByUsername(candidate)) {
+                candidate = normalized + suffix++;
+            }
+            newUser.setUsername(candidate);
+            return userRepository.save(newUser);
+        });
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", user.getRole().name());
+        String accessToken = jwtUtil.generateAccessToken(user.getUsername(), claims);
+        RefreshTokenResponse refreshTokenResponse = generateRefreshToken(user.getUserId());
+
+        return convertToRegisterResponse(user, accessToken, refreshTokenResponse.getRefreshToken());
+    }
+
+    @Override
     public Integer getUserIdByUsername(String username) {
         Integer userId = userRepository.getUserIdByUsername(username);
         if (userId == null) {
@@ -163,6 +202,12 @@ public class AuthServiceImpl implements AuthService {
     public String getRoleByUsername(String username) {
         return userRepository.findByUsername(username)
                 .map(user -> user.getRole().name())
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
+    }
+
+    @Override
+    public User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
     }
 }

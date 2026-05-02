@@ -3,6 +3,7 @@ package com.foodshop.controller;
 import com.foodshop.dto.request.AuthRequest;
 import com.foodshop.dto.request.RefreshTokenRequest;
 import com.foodshop.dto.request.RegisterRequest;
+import com.foodshop.entity.User;
 import com.foodshop.dto.response.AuthResponse;
 import com.foodshop.dto.ApiResponse;
 import com.foodshop.dto.response.JwtResponse;
@@ -14,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -76,5 +79,19 @@ public class AuthController {
         );
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<AuthResponse>> me(Authentication authentication) {
+        User user = authService.getUserByUsername(authentication.getName());
+        AuthResponse authResponse = new AuthResponse(
+                user.getUsername(),
+                "",
+                "",
+                user.getUserId(),
+                user.getRole()
+        );
+        return ResponseEntity.ok(new ApiResponse<>(GlobalCode.SUCCESS, "Current user fetched.", authResponse));
     }
 }

@@ -21,6 +21,9 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -63,7 +66,7 @@ class AuthServiceImplTest {
         token.setRefreshToken("expired-token");
         token.setUser(user);
         token.setExpiryDate(Instant.now().minusSeconds(30));
-        when(refreshTokenRepository.findByRefreshToken("expired-token")).thenReturn(Optional.of(token));
+        when(refreshTokenRepository.findByRefreshToken(sha256Base64("expired-token"))).thenReturn(Optional.of(token));
 
         GlobalException exception = assertThrows(GlobalException.class,
                 () -> authService.validateRefreshTokenAndGetUsername("expired-token"));
@@ -78,7 +81,7 @@ class AuthServiceImplTest {
         token.setRefreshToken("valid-token");
         token.setUser(user);
         token.setExpiryDate(Instant.now().plusSeconds(300));
-        when(refreshTokenRepository.findByRefreshToken("valid-token")).thenReturn(Optional.of(token));
+        when(refreshTokenRepository.findByRefreshToken(sha256Base64("valid-token"))).thenReturn(Optional.of(token));
 
         String username = authService.validateRefreshTokenAndGetUsername("valid-token");
 
@@ -133,6 +136,40 @@ class AuthServiceImplTest {
         String token = authService.createAccessTokenFromRefreshToken("customer01");
 
         assertEquals("new-access-token", token);
+    }
+
+    @Test
+    void loginWithGoogleShouldCreateNewCustomerWhenEmailNotExists() {
+        when(userRepository.findByEmail("google@example.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername(any())).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("encoded");
+        when(jwtUtil.generateAccessToken(any(), any(Map.class))).thenReturn("oauth-access-token");
+
+        User savedUser = buildUser(101, "googleuser", true);
+        savedUser.setEmail("google@example.com");
+        savedUser.setFullName("Google User");
+        savedUser.setAddress("N/A");
+        savedUser.setPhoneNumber("0000000000");
+
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(userRepository.findById(101)).thenReturn(Optional.of(savedUser));
+
+        AuthResponse response = authService.loginWithGoogle("google@example.com", "Google User");
+
+        assertEquals("google@example.com", savedUser.getEmail());
+        assertEquals("oauth-access-token", response.getAccessToken());
+        assertNotNull(response.getRefreshToken());
+        verify(userRepository).save(any(User.class));
+    }
+
+    private String sha256Base64(String token) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     private User buildUser(int userId, String username, boolean enabled) {
