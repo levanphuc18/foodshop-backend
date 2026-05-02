@@ -57,7 +57,7 @@ public enum GlobalCode {
     MIN_ORDER_AMOUNT_REQUIRED(5000, "MinOrderAmount is required for order-based discounts."),
     INVALID_MIN_ORDER_AMOUNT(5001, "MinOrderAmount must not be provided for product-based discounts."),
     INVALID_MAX_DISCOUNT(5002, "MaxDiscount must not be provided for product-based discounts."),
-    INVALID_PERCENTAGE_VALUE(5003; "Percentage value must be between 0 and 100.");
+    INVALID_PERCENTAGE_VALUE(5003, "Percentage value must be between 0 and 100.");
 
     private final int code;
     private final String message;
