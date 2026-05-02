@@ -1,5 +1,6 @@
 package com.foodshop.service;
 
+import com.foodshop.dto.request.UpdateProfileRequest;
 import com.foodshop.dto.response.UserResponse;
 import com.foodshop.enums.Role;
 import org.springframework.data.domain.Page;
@@ -12,4 +13,8 @@ public interface UserService {
     UserResponse getUserById(Integer id);
 
     UserResponse toggleUserStatus(Integer id);
+
+    UserResponse getCurrentUserProfile(String username);
+
+    UserResponse updateCurrentUserProfile(String username, UpdateProfileRequest request);
 }

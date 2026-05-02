@@ -1,5 +1,6 @@
 package com.foodshop.service.implement;
 
+import com.foodshop.dto.request.UpdateProfileRequest;
 import com.foodshop.dto.response.UserResponse;
 import com.foodshop.entity.User;
 import com.foodshop.enums.Role;
@@ -84,6 +85,32 @@ public class UserServiceImpl implements UserService {
             refreshTokenRepository.deleteByUser_UserId(id);
         }
         
+        return userMapper.toUserResponse(user);
+    }
+
+    @Override
+    public UserResponse getCurrentUserProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
+        return userMapper.toUserResponse(user);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public UserResponse updateCurrentUserProfile(String username, UpdateProfileRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new GlobalException(GlobalCode.USER_NOT_FOUND));
+
+        String nextEmail = request.getEmail().trim();
+        if (!nextEmail.equalsIgnoreCase(user.getEmail()) && userRepository.existsByEmail(nextEmail)) {
+            throw new GlobalException(GlobalCode.BAD_REQUEST, "Email already exists.");
+        }
+
+        user.setEmail(nextEmail);
+        user.setFullName(request.getFullName().trim());
+        user.setPhoneNumber(request.getPhoneNumber().trim());
+        user.setAddress(request.getAddress().trim());
+        user = userRepository.save(user);
         return userMapper.toUserResponse(user);
     }
 
