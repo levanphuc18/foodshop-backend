@@ -29,7 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String method = request.getMethod();
 
         // Skip JWT check for public endpoints
-        boolean isPublicAuth = path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/users");
+        boolean isPublicAuth = (path.startsWith("/api/v1/auth") && !"/api/v1/auth/me".equals(path))
+                || (path.startsWith("/api/v1/users") && !"/api/v1/users/me".equals(path));
         boolean isPublicGet = "GET".equalsIgnoreCase(method) && (
                 path.startsWith("/api/v1/products") ||
                 path.startsWith("/api/v1/categories") ||
