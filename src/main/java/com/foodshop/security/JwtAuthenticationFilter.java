@@ -48,6 +48,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith(tokenPrefix)) {
             jwt = authHeader.substring(tokenPrefix.length());
+        } else if (request.getCookies() != null) {
+            // SECURITY FIX [P0]: Hỗ trợ đọc HttpOnly cookie từ Frontend gửi lên
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if ("auth-token".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (jwt != null) {
             try {
                 username = jwtUtil.extractUsername(jwt);
             } catch (Exception ignored) {
