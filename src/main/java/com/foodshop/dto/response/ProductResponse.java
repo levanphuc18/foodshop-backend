@@ -27,4 +27,6 @@ public class ProductResponse {
     private BigDecimal maxDiscount;
     private String productStatus;
     private Boolean isActive;
+    private BigDecimal averageRating;
+    private Integer totalReviews;
 }

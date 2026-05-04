@@ -69,6 +69,14 @@ public class Product {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "average_rating", nullable = false, precision = 2, scale = 1)
+    @Builder.Default
+    private BigDecimal averageRating = BigDecimal.ZERO;
+
+    @Column(name = "total_reviews", nullable = false)
+    @Builder.Default
+    private Integer totalReviews = 0;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
